@@ -2,7 +2,10 @@
 module tb_init_screen();
 
 //instantiation
-/* init_screen( logic input start,
+/* init_screen( 
+    logic input clk,
+    logic input rst_n,
+    logic input start,
     logic output waitrequest,
     logic output vga_plot,
     logic [7:0] output vga_x,

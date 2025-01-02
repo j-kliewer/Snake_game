@@ -3,7 +3,7 @@ module init_screen( input logic clk, input logic rst_n, input logic start,
                     output logic [7:0] vga_x, output logic [6:0] vga_y,  output logic [2:0] vga_colour);
 
     
-    //utilizes waitrequest protocol, expects start to only go high if waitrequest is low
+    //utilizes waitrequest protocol, start is only accepted when waitrequest is low
 
     /*
     //inputs//
