@@ -55,6 +55,9 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
 
     //For game_plot
     logic gplot_game_plot;
+    logic [3:0] gplot_game_x;
+    logic [3:0] gplot_game_y;
+    logic [2:0] gplot_game_colour;
     logic gplot_waitrequest;
     logic gplot_vga_plot;
     logic [7:0] gplot_vga_x;
@@ -81,9 +84,9 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
         .clk(CLOCK_50),
         .rst_n(rst_n),
         .game_plot(gplot_game_plot),
-        .game_x(4'd12),
-        .game_y(4'd12),
-        .game_colour(3'b100),
+        .game_x(gplot_game_x),
+        .game_y(gplot_game_y),
+        .game_colour(gplot_game_colour),
         //outputs
         .waitrequest(gplot_waitrequest),
         .vga_plot(gplot_vga_plot),
@@ -93,7 +96,30 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
     );
 
 
+    //For on chip memory
+    logic ram_we;
+    logic [7:0] ram_wr_data;
+    logic [7:0] ram_wr_addr;
+    logic [7:0] ram_rd_addr;
+    logic [7:0] ram_rd_data;
 
+    /* simple_dual_port_ram(
+        //inputs
+        input clk,
+        input we,
+        input [7:0] d,
+        input [7:0] write_address, read_address,
+        //outputs
+        output reg [7:0] q
+    );*/
+    simple_dual_port_ram ram_u0(
+        .clk(CLOCK_50),
+        .we(ram_we),
+        .d(ram_wr_data),
+        .write_address(ram_wr_addr),
+        .read_address(ram_rd_addr),
+        .q(ram_rd_data)
+    );
 
     //For VGA
     //create 10 bit VGA_RGB for VGA module output, assign 8 bit VGA_RGB for output to DE1_SOC
@@ -123,7 +149,8 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
 			VGA_VS,
 			VGA_BLANK,
 			VGA_SYNC,
-			VGA_CLK);*/
+			VGA_CLK
+    );*/
     vga_adapter#(.RESOLUTION("160x120")) vga_u0(
         //inputs
         .resetn(rst_n),
@@ -144,7 +171,7 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
         .VGA_CLK()*/
     );
 
-    enum logic [2:0] {IDLE, INIT_SCREEN, INIT_SCREEN_2, GAME_PLOT} state;
+    enum logic [2:0] {IDLE, INIT_SCREEN, INIT_SCREEN_2, GAME_PLOT, TESTING, TESTING_2} state;
     //sequential
     //synchronous reset
     always_ff@(posedge CLOCK_50) begin
@@ -163,16 +190,38 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
                         //turn off start once command is accepted
                         is_start <= 1'b0;
                         state <= INIT_SCREEN_2;
+                        ram_we <= 1'b1;
+                        ram_wr_addr <= 8'd255;
+                        ram_wr_data <= 8'b1001_1010; //aka 9_10
                     end
                 end
                 INIT_SCREEN_2: begin
+                    ram_we <= 1'b0;
                     if(!is_waitrequest) begin
                         state <= GAME_PLOT;
                         gplot_game_plot <= 1'b1;
+                        gplot_game_x <= 4'd1;
+                        gplot_game_y <= 4'd1;
+                        gplot_game_colour <= 3'b100;
+                        ram_rd_addr <= 8'd255;
+                        
                     end
                 end
                 GAME_PLOT: begin
-                    if(!gplot_waitrequest) begin
+                    if(!gplot_waitrequest) begin //wait for command to accept
+                        gplot_game_plot <= 1'b0;
+                        state <= TESTING;
+                    end
+                end
+                TESTING: begin
+                    state <= TESTING_2;
+                    gplot_game_plot <= 1'b1;
+                    gplot_game_x <= ram_rd_data[7:4];
+                    gplot_game_y <= ram_rd_data[3:0];
+                    gplot_game_colour <= 3'b001;
+                end
+                TESTING_2: begin
+                    if(!gplot_waitrequest) begin //wait for command to accept
                         gplot_game_plot <= 1'b0;
                     end
                 end
@@ -201,6 +250,18 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
                 VGA_COLOUR = is_vga_colour;
             end
             GAME_PLOT: begin
+                VGA_PLOT = gplot_vga_plot;
+                VGA_X = gplot_vga_x;
+                VGA_Y = gplot_vga_y;
+                VGA_COLOUR = gplot_vga_colour;
+            end
+            TESTING: begin
+                VGA_PLOT = gplot_vga_plot;
+                VGA_X = gplot_vga_x;
+                VGA_Y = gplot_vga_y;
+                VGA_COLOUR = gplot_vga_colour;
+            end
+            TESTING_2: begin
                 VGA_PLOT = gplot_vga_plot;
                 VGA_X = gplot_vga_x;
                 VGA_Y = gplot_vga_y;
