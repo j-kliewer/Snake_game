@@ -34,7 +34,10 @@ module tb_top_snake_game();
     logic VGA_PLOT;
 
     logic rst_n;
-    assign KEY[3] = rst_n;
+    assign SW[9] = ~rst_n;
+
+    logic LEFT, UP, DOWN, RIGHT;
+    assign  KEY[3:0] = ~{LEFT, UP, DOWN, RIGHT}; //active low
 
     logic clk;
     assign CLOCK_50 = clk;
@@ -48,12 +51,20 @@ module tb_top_snake_game();
     end
 
     initial begin
+        {LEFT, UP, DOWN, RIGHT} = 4'b0000;
         @(posedge clk) @(negedge clk)
         rst_n = 1'b0;
         @(posedge clk) @(negedge clk)
         rst_n = 1'b1;
 
-        wait(DUT.state === DUT.TESTING_2);
+        wait(DUT.state === DUT.GAME_PATH);
+        #1000;
+        @(posedge clk) @(negedge clk)
+        {LEFT, UP, DOWN, RIGHT} = 4'b0_0_1_0;
+        @(posedge clk) @(negedge clk)
+        {LEFT, UP, DOWN, RIGHT} = 4'b0_0_0_0;
+
+        wait(DUT.state === DUT.DEATH);
         #1000;
         $display("Finished at time %t", $time);
         $stop;
