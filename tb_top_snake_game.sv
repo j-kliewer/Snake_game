@@ -58,14 +58,60 @@ module tb_top_snake_game();
         rst_n = 1'b1;
 
         wait(DUT.state === DUT.GAME_PATH);
-        #1000;
+        #100;
         @(posedge clk) @(negedge clk)
         {LEFT, UP, DOWN, RIGHT} = 4'b0_0_1_0;
+        #70
         @(posedge clk) @(negedge clk)
         {LEFT, UP, DOWN, RIGHT} = 4'b0_0_0_0;
 
-        wait(DUT.state === DUT.DEATH);
-        #1000;
+        /*while(DUT.game_path_u0.state != DUT.game_path_u0.DEATH) begin
+            if(DUT.game_path_u0.state == DUT.game_path_u0.STALL) begin
+                //correct x first
+                if(DUT.game_path_u0.apple[3:0] > DUT.game_path_u0.head[3:0]) begin
+                    {LEFT, UP, DOWN, RIGHT} = 4'b0_0_0_1;
+                end
+                else if(DUT.game_path_u0.apple[3:0] < DUT.game_path_u0.head[3:0]) begin
+                    {LEFT, UP, DOWN, RIGHT} = 4'b1_0_0_0;
+                end
+                //then correct y
+                else if(DUT.game_path_u0.apple[7:4] > DUT.game_path_u0.head[7:4]) begin
+                    {LEFT, UP, DOWN, RIGHT} = 4'b0_0_1_0;
+                end
+                else if(DUT.game_path_u0.apple[7:4] < DUT.game_path_u0.head[7:4]) begin
+                    {LEFT, UP, DOWN, RIGHT} = 4'b0_1_0_0;
+                end
+            end
+            #11;
+        end*/
+
+        wait(DUT.game_path_u0.state == DUT.game_path_u0.STALL);
+        @(posedge clk) @(negedge clk)
+        {LEFT, UP, DOWN, RIGHT} = 4'b0_0_0_1;
+        @(posedge clk) @(negedge clk)
+        #410;
+
+        wait(DUT.game_path_u0.state == DUT.game_path_u0.STALL);
+        @(posedge clk) @(negedge clk)
+        {LEFT, UP, DOWN, RIGHT} = 4'b0_0_1_0;
+        @(posedge clk) @(negedge clk)
+        #410;
+
+        {LEFT, UP, DOWN, RIGHT} = 4'b0_0_0_0;
+
+        wait(DUT.game_path_u0.state == DUT.game_path_u0.DEATH_STALL);
+        @(posedge clk) @(negedge clk)
+        {LEFT, UP, DOWN, RIGHT} = 4'b0_0_1_0;
+        @(posedge clk) @(negedge clk)
+
+
+        wait(DUT.game_path_u0.state == DUT.game_path_u0.DEATH_END);
+        @(posedge clk) @(negedge clk)
+        {LEFT, UP, DOWN, RIGHT} = 4'b0_0_0_0;
+        @(posedge clk) @(negedge clk)
+
+        wait(DUT.game_path_u0.state === DUT.game_path_u0.IDLE);
+        #10
         $display("Finished at time %t", $time);
         $stop;
     end

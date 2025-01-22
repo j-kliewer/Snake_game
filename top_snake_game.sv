@@ -152,7 +152,7 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
     logic [7:0] ram_rd_addr;
     logic [7:0] ram_rd_data;
 
-    /* simple_dual_port_ram(
+    simple_dual_port_ram(
         //inputs
         input clk,
         input we,
@@ -232,13 +232,19 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
         else begin
             case(state)
                 IDLE: begin
+                    ////////////////////////////////////////////////////////////////////////////////////////////////////
                     //for testing only
-                    state <= GAME_PATH;
-                    gpath_start <= 1'b1;
-                    /*
+                    
+                    //state <= GAME_PATH;
+                    //gpath_start <= 1'b1;
+                    
+                    ////////////////////////////////////////////////////////////////////////////////////////////////////
+                    
+                    //for synthesis
                     state <= INIT_SCREEN;
                     is_start <= 1'b1;
-                    */
+                    
+                    ////////////////////////////////////////////////////////////////////////////////////////////////////
                 end
                 INIT_SCREEN: begin
                     if(!is_waitrequest) begin
