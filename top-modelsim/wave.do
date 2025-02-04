@@ -116,6 +116,7 @@ add wave -noupdate /tb_top_snake_game/DUT/game_plot_u0/base_y
 add wave -noupdate /tb_top_snake_game/DUT/game_plot_u0/x
 add wave -noupdate /tb_top_snake_game/DUT/game_plot_u0/y
 add wave -noupdate /tb_top_snake_game/DUT/game_plot_u0/state
+add wave -noupdate -divider -height 50 TB
 add wave -noupdate /tb_top_snake_game/CLOCK_50
 add wave -noupdate /tb_top_snake_game/KEY
 add wave -noupdate /tb_top_snake_game/SW
@@ -136,15 +137,21 @@ add wave -noupdate /tb_top_snake_game/VGA_X
 add wave -noupdate /tb_top_snake_game/VGA_Y
 add wave -noupdate /tb_top_snake_game/VGA_COLOUR
 add wave -noupdate /tb_top_snake_game/VGA_PLOT
-add wave -noupdate -divider -height 50 TB
-add wave -noupdate /tb_top_snake_game/rst_n
 add wave -noupdate /tb_top_snake_game/LEFT
 add wave -noupdate /tb_top_snake_game/UP
 add wave -noupdate /tb_top_snake_game/DOWN
 add wave -noupdate /tb_top_snake_game/RIGHT
 add wave -noupdate /tb_top_snake_game/clk
+add wave -noupdate /tb_top_snake_game/rst
+add wave -noupdate -divider -height 50 {SW Debounce}
+add wave -noupdate /tb_top_snake_game/DUT/sw_debounce_u0/clk
+add wave -noupdate /tb_top_snake_game/DUT/sw_debounce_u0/in_sw
+add wave -noupdate /tb_top_snake_game/DUT/sw_debounce_u0/out_sw
+add wave -noupdate /tb_top_snake_game/DUT/sw_debounce_u0/syn
+add wave -noupdate -radix unsigned /tb_top_snake_game/DUT/sw_debounce_u0/counter
+add wave -noupdate -divider task
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {140119 ps} 0}
+WaveRestoreCursors {{Cursor 1} {14318 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 343
 configure wave -valuecolwidth 100
@@ -160,4 +167,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ps
 update
-WaveRestoreZoom {0 ps} {912 ps}
+WaveRestoreZoom {14224 ps} {15136 ps}
