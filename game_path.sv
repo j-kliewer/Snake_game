@@ -104,6 +104,10 @@ module game_path(input logic clk, input logic rst_n, input logic start, input lo
         .q(rd_data)
     );
 
+    ////////////////////////////////////////////////////////////////////
+    //Latch User input of last pressed direction
+    ////////////////////////////////////////////////////////////////////
+
     enum logic [1:0] {LEFT, RIGHT, UP, DOWN} last_direction, direction;
     //sequential
     //synchronous reset
@@ -177,6 +181,10 @@ module game_path(input logic clk, input logic rst_n, input logic start, input lo
     end
 
 
+    ////////////////////////////////////////////////////////////////////
+    //Drive main state machine sequence
+    ////////////////////////////////////////////////////////////////////
+
     enum logic [3:0] {IDLE, INIT_APPLE, INIT_HEAD, INIT_TAIL, STALL, COLLISION, HEAD, HEAD_PLOT, TAIL, TAIL_PLOT, APPLE, APPLE_PLOT, DEATH_STALL, DEATH, DEATH_END} state;
     //sequential
     //synchronous reset
@@ -189,13 +197,13 @@ module game_path(input logic clk, input logic rst_n, input logic start, input lo
     always_ff@(posedge clk) begin
         if(!rst_n) begin
             state <= IDLE;
-            //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             //testing make stall shorter
             //stall_num <= 26'd40;
-            //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             //synthesizable
             stall_num <= 26'd25_000_000;
-            //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             //define so above combinational logic is always defined
             direction <= DOWN;
             head <= 8'b0001_0111; //(7,1)
@@ -353,8 +361,9 @@ module game_path(input logic clk, input logic rst_n, input logic start, input lo
                 end
                 APPLE: begin
                     //calculate new suitable space for apple and plot it
-                    if(simple_mem[rand_apple] || rand_apple == last_tail) begin //need to be cautious of last tail as it is not is simple_mem, but is still plotted as white
-                        rand_apple <= rand_apple + 8'd7; //7 chosen for unlikelihood to collide with snake again, max 256 cycles to go through all spaces                     end
+                    //if rand_apple from lfsr is already used, increment until the space is open
+                    if(simple_mem[rand_apple] || rand_apple == last_tail) begin //need to be cautious of last tail as it is not in simple_mem, but is still plotted as white
+                        rand_apple <= rand_apple + 8'd7; //7 chosen for unlikelihood to collide with snake again, max 256 cycles to go through all spaces
                     end
                     else begin//rand_apple space is free, plot it
                         state <= APPLE_PLOT;
@@ -376,7 +385,13 @@ module game_path(input logic clk, input logic rst_n, input logic start, input lo
                         //stall_num begins at 25_000_000 (half a second assumming clock = 50 MHZ)
                         //after eating max possible apples (256) want stall_num = 15_000_000 = 300 ms = quickest human reaction time(assuming clock = 50MHz)
                         //need to decrease by 10_000_000 in 256 apples = 39_062.5 / apple = roughly 39_000
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                        //Synthesize only, for testing comment out
                         stall_num <= stall_num - 26'd39_000;
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                         count <= 26'd0;
                     end
                 end
@@ -484,8 +499,9 @@ module game_path(input logic clk, input logic rst_n, input logic start, input lo
     end
 
 
-
-  //Random Apple location generation using Linear Feedback Shift Register
+    ////////////////////////////////////////////////////////////////////
+    //Random Apple location generation using Linear Feedback Shift Register
+    ////////////////////////////////////////////////////////////////////
 
     //drive lfsr, updating once per new apple
     always_ff@(posedge clk) begin
@@ -515,8 +531,9 @@ module game_path(input logic clk, input logic rst_n, input logic start, input lo
                     end
                 end
 
-            //shifting 8 bits per time hiting apple, since lfsr will cycle through 256*8 numbers (excluding all ones) 11 bit numbers before repeating 
-            //only shifting one bit resulted in not very random results, low number stayed low
+            //shifting 8 bits per time hiting apple (only shifting one bit  per new apple fave not very random results, low number stayed low)
+            //since we want lfsr to cycle through 256 8-bit numbers we need (2^11) random numbers to get this before repeating
+            //only get 2^11 - 1 random numbers since all ones will never be hit
             if(state == APPLE_PLOT && !game_plot_waitrequest) begin //used as this only occurs for one clk cycle in apple loop
                 lfsr_count <= 4'd0;
             end

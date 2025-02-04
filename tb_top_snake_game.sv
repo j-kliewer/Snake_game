@@ -33,8 +33,8 @@ module tb_top_snake_game();
     logic [2:0] VGA_COLOUR; 
     logic VGA_PLOT;
 
-    logic rst_n;
-    assign SW[9] = ~rst_n;
+    logic rst;
+    assign SW[9] = rst;
 
     logic LEFT, UP, DOWN, RIGHT;
     assign  KEY[3:0] = ~{LEFT, UP, DOWN, RIGHT}; //active low
@@ -50,12 +50,23 @@ module tb_top_snake_game();
         forever #5 clk = ~clk;
     end
 
+    task automatic reset(ref clk, ref rst_flag, ref rst);
+        begin
+            @(posedge clk) @(negedge clk)
+            rst = 1'b1;
+            @(posedge rst_flag) //wait for reset signal to begin (past debounce stage)
+            @(posedge clk) @(negedge clk)
+            rst = 1'b0;
+            @(negedge rst_flag) //wait for reset signal to finish
+            #5;
+        end
+    endtask: reset
+
     initial begin
         {LEFT, UP, DOWN, RIGHT} = 4'b0000;
-        @(posedge clk) @(negedge clk)
-        rst_n = 1'b0;
-        @(posedge clk) @(negedge clk)
-        rst_n = 1'b1;
+        DUT.sw_debounce_u0.out_sw = 1'b0; //setup out_sw for comparison in block
+        
+        reset(clk, DUT.rst, rst);
 
         wait(DUT.state === DUT.GAME_PATH);
         #100;

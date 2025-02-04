@@ -11,15 +11,43 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
     //variables
 
     //assign inputs from board
-    logic rst_n;
-    assign rst_n = ~SW[9]; //restart if pushed up?
 
+    //rst taken from SW[9] and put through synchronizer and debuonced
+    logic rst;
+    //need to change reset condition (SW[9] == 1'b1) to be negative as all modules have active low reset
+    logic rst_n;
+    assign rst_n = ~rst;
+
+    //KEY[3:0] put through synchronizer to get on clk, doesn't need debounce as already implemented on board
+    logic [3:0] key_sync;
     logic LEFT, UP, DOWN, RIGHT;
-    assign {LEFT, UP, DOWN, RIGHT} = ~KEY[3:0]; //inverted as keys are active low
+    assign {LEFT, UP, DOWN, RIGHT} = ~key_sync[3:0]; //inverted as keys are active low
 
 
 
     //instantiations
+
+    //For reset through switch_debounce
+    /* switch_debounce
+    #(parameter DEBOUNCE_TIME = 10'd1000)
+    (
+        //inputs
+        input logic clk, 
+        input logic in_sw, 
+        //outputs
+        output logic out_sw
+    );*/
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //Testing
+    //switch_debounce #(.DEBOUNCE_TIME(10'd20)) sw_debounce_u0(
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //Synthesize
+    switch_debounce sw_debounce_u0(
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        .clk(CLOCK_50),
+        .in_sw(SW[9]),
+        .out_sw(rst) //restarts if pushed up
+    );
 
     //For init_screen
     logic is_start;
@@ -28,6 +56,20 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
     logic [7:0] is_vga_x;
     logic [6:0] is_vga_y;
     logic [2:0] is_vga_colour;
+
+
+    /*button_sync(
+        //inputs
+        input logic clk, 
+        input logic[3:0] in_button, 
+        //outputs
+        output logic[3:0] out_button
+        );*/
+    button_sync button_sync_uo(
+        .clk(CLOCK_50),
+        .in(KEY[3:0]),
+        .out(key_sync[3:0])
+    );
 
     /* init_screen( 
         //inputs
@@ -144,31 +186,6 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
         .game_colour(gplot_game_colour)
     );
 
-    /*Initiated within game_path
-    //For on chip memory
-    logic ram_we;
-    logic [7:0] ram_wr_data;
-    logic [7:0] ram_wr_addr;
-    logic [7:0] ram_rd_addr;
-    logic [7:0] ram_rd_data;
-
-    simple_dual_port_ram(
-        //inputs
-        input clk,
-        input we,
-        input [7:0] d,
-        input [7:0] write_address, read_address,
-        //outputs
-        output reg [7:0] q
-    );
-    simple_dual_port_ram ram_u0(
-        .clk(CLOCK_50),
-        .we(ram_we),
-        .d(ram_wr_data),
-        .write_address(ram_wr_addr),
-        .read_address(ram_rd_addr),
-        .q(ram_rd_data)
-    );*/
 
     //For VGA
     //create 10 bit VGA_RGB for VGA module output, assign 8 bit VGA_RGB for output to DE1_SOC
@@ -234,12 +251,10 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
                 IDLE: begin
                     ////////////////////////////////////////////////////////////////////////////////////////////////////
                     //for testing only
-                    
                     //state <= GAME_PATH;
                     //gpath_start <= 1'b1;
                     
                     ////////////////////////////////////////////////////////////////////////////////////////////////////
-                    
                     //for synthesis
                     state <= INIT_SCREEN;
                     is_start <= 1'b1;
