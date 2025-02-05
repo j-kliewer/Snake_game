@@ -145,8 +145,14 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
     logic gpath_start;
     //assign gpath_start = ~(KEY[0] && KEY[1] && KEY[2] && KEY[3]); //all are active low, if any go low it will trigger start
     logic gpath_waitrequest;
+    //output used by hex_display
+    logic [7:0] hex_points;
 
-    /* game_path(
+    /* game_path#(
+        //parameters
+        parameter [25:0] STALL_BASE = 26'd25_000_000,
+        parameter [25:0] STALL_DECR = 26'd39_000
+        )(
         //inputs
         input logic clk, 
         input logic rst_n, 
@@ -165,8 +171,16 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
         output logic [3:0] game_x, 
         output logic [3:0] game_y, 
         output logic [2:0] game_colour
-                );*/
+        //hex_display outputs
+        output logic [7:0] hex_points
+    );*/
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //testing
+    //game_path #(.STALL_BASE(26'd40), .STALL_DECR(26'd0)) game_path_u0(
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //synthesize
     game_path game_path_u0(
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         //inputs
         .clk(CLOCK_50),
         .rst_n(rst_n),
@@ -183,8 +197,40 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
         .game_plot(gplot_game_plot),
         .game_x(gplot_game_x),
         .game_y(gplot_game_y),
-        .game_colour(gplot_game_colour)
+        .game_colour(gplot_game_colour),
+        //outputs for hex_display
+        .hex_points(hex_points)
     );
+
+
+    //For Hex Display
+    /* hex_display #(parameter NUM_HEX = 2) (
+        //inputs
+        input logic clk, 
+        input logic rst_n, 
+        input logic [(NUM_HEX<<2)-1:0] num,
+        //outputs
+        output logic [6:0] HEX0, 
+        output logic [6:0] HEX1, 
+        output logic [6:0] HEX2,
+        output logic [6:0] HEX3, 
+        output logic [6:0] HEX4, 
+        output logic [6:0] HEX5
+    );*/
+    hex_display #(.NUM_HEX(2)) hex_display_u0(
+        //inputs
+        .clk(CLOCK_50),
+        .rst_n(rst_n),
+        .num(hex_points),
+        //outputs
+        .HEX0(HEX0),
+        .HEX1(HEX1),
+        .HEX2(HEX2),
+        .HEX3(HEX3),
+        .HEX4(HEX4),
+        .HEX5(HEX5)
+    );
+    
 
 
     //For VGA
@@ -250,7 +296,7 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
             case(state)
                 IDLE: begin
                     ////////////////////////////////////////////////////////////////////////////////////////////////////
-                    //for testing only
+                    //for testing only skip init_screen
                     //state <= GAME_PATH;
                     //gpath_start <= 1'b1;
                     

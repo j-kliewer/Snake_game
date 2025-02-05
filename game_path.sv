@@ -1,8 +1,11 @@
-module game_path(input logic clk, input logic rst_n, input logic start, input logic in_left, 
+module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0] STALL_DECR = 26'd39_000)
+                (input logic clk, input logic rst_n, input logic start, input logic in_left, 
                  input logic in_right, input logic in_up, input logic in_down, output logic waitrequest,
                  //for game_plot
                  input logic game_plot_waitrequest, output logic game_plot,
-                 output logic [3:0] game_x, output logic [3:0] game_y, output logic [2:0] game_colour
+                 output logic [3:0] game_x, output logic [3:0] game_y, output logic [2:0] game_colour,
+                 //for hex_display
+                 output logic [7:0] hex_points
                 );
     /*
     //inputs//
@@ -194,20 +197,18 @@ module game_path(input logic clk, input logic rst_n, input logic start, input lo
     //drives wr_ptr and rd_ptr to keep track of SRAM memory to use as FIFO
     //drives simple_mem to keep track of snake body cells internally
     //drives count and stall_num for internal use stalling time per turn
+    //drives hex_points
     always_ff@(posedge clk) begin
         if(!rst_n) begin
             state <= IDLE;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            //testing make stall shorter
-            //stall_num <= 26'd40;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            //synthesizable
-            stall_num <= 26'd25_000_000;
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+            stall_num <= STALL_BASE;
             //define so above combinational logic is always defined
             direction <= DOWN;
             head <= 8'b0001_0111; //(7,1)
             simple_mem <= 256'd0;
+            //reset hex_points
+            hex_points <= 8'd0;
         end
         else begin
             case(state)
@@ -215,6 +216,9 @@ module game_path(input logic clk, input logic rst_n, input logic start, input lo
                     if(start && (in_left || in_up || in_down || in_right )) begin
                         //change state
                         state <= INIT_APPLE;
+
+                        //init stall_num
+                        stall_num <= STALL_BASE;
 
                         //setup head, last_tail, apple, direction
                         head <= 8'b0001_0111; //(7,1)
@@ -224,6 +228,9 @@ module game_path(input logic clk, input logic rst_n, input logic start, input lo
 
                         //init length
                         length <= 8'd2;
+
+                        //init hex_points
+                        hex_points <= 8'd0; //could make 2 depending on scoring system, however if starting at 2, max will be 256 which needs another bit to be represented
 
                         //write head to FIFO, only need to include head since tail is held in last_tail
                         we <= 1'b1;
@@ -323,6 +330,7 @@ module game_path(input logic clk, input logic rst_n, input logic start, input lo
                             state <= APPLE;
                             rand_apple <= lfsr[7:0]; //taken from random apple generator
                             length <= length + 8'd1;
+                            hex_points <= hex_points + 8'd1;
                         end
                         else begin //if no apple is eaten, update tail as usual
                             state <= TAIL; 
@@ -384,14 +392,8 @@ module game_path(input logic clk, input logic rst_n, input logic start, input lo
                         //decrease stall_num to make game faster after each apple
                         //stall_num begins at 25_000_000 (half a second assumming clock = 50 MHZ)
                         //after eating max possible apples (256) want stall_num = 15_000_000 = 300 ms = quickest human reaction time(assuming clock = 50MHz)
-                        //need to decrease by 10_000_000 in 256 apples = 39_062.5 / apple = roughly 39_000
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                        //Synthesize only, for testing comment out
-                        stall_num <= stall_num - 26'd39_000;
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                        //need to decrease by 10_000_000 in 256 apples = 39_062.5 / apple = roughly 39_000, seen in defualt for STALL_DECR parameter
+                        stall_num <= stall_num - STALL_DECR;
                         count <= 26'd0;
                     end
                 end
@@ -407,11 +409,6 @@ module game_path(input logic clk, input logic rst_n, input logic start, input lo
                         game_colour <= BLACK;
                     end
                 end
-
-                ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                //Noticing failure to clear each and every block of worm, thinking it is related to game_plot_waitrequest and timing issue
-                //Currently researching timing constraints cdc etc
-                ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                 DEATH: begin //fastest way to cover the worm is to read its location from memory
                     if(length > 8'd1) begin //need to cover all lengths of worm, length was not decreased while covering last_tail to account for apple needing to be covered as well
                         if(!game_plot_waitrequest) begin //once accepted, give next request to cover worm

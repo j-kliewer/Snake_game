@@ -62,6 +62,45 @@ module tb_top_snake_game();
         end
     endtask: reset
 
+
+
+    //make a function to return value related to the corresponding 7-segment hex sequence
+    function logic [3:0] hexdisplay2num( logic [7:0] hex);
+        case(hex)
+            7'b1000000: return 4'h0; //0
+            7'b1111001: return 4'h1; //1
+            7'b0100100: return 4'h2; //2
+            7'b0110000: return 4'h3; //3
+            7'b0011001: return 4'h4; //4
+            7'b0010010: return 4'h5; //5
+            7'b0000010: return 4'h6; //6
+            7'b1111000: return 4'h7; //7
+            7'b0000000: return 4'h8; //8
+            7'b0010000: return 4'h9; //9
+            7'b0001000: return 4'hA; //A
+            7'b0000011: return 4'hB; //b
+            7'b1000110: return 4'hC; //C
+            7'b0100001: return 4'hD; //d
+            7'b0000110: return 4'hE; //E
+            7'b0001110: return 4'hF; //F
+            7'b0111111: return 4'hz; //-
+            default: return 4'hx;
+        endcase
+    endfunction
+
+    logic [3:0] hex0eq, hex1eq, hex2eq, hex3eq, hex4eq, hex5eq;
+    always_comb begin
+        hex0eq = hexdisplay2num(HEX0);
+        hex1eq = hexdisplay2num(HEX1);
+        hex2eq = hexdisplay2num(HEX2);
+        hex3eq = hexdisplay2num(HEX3);
+        hex4eq = hexdisplay2num(HEX4);
+        hex5eq = hexdisplay2num(HEX5);
+    end
+
+
+    
+
     initial begin
         {LEFT, UP, DOWN, RIGHT} = 4'b0000;
         DUT.sw_debounce_u0.out_sw = 1'b0; //setup out_sw for comparison in block

@@ -43,6 +43,7 @@ add wave -noupdate /tb_top_snake_game/DUT/gplot_vga_y
 add wave -noupdate /tb_top_snake_game/DUT/gplot_vga_colour
 add wave -noupdate /tb_top_snake_game/DUT/gpath_start
 add wave -noupdate /tb_top_snake_game/DUT/gpath_waitrequest
+add wave -noupdate /tb_top_snake_game/DUT/hex_points
 add wave -noupdate /tb_top_snake_game/DUT/VGA_R_10
 add wave -noupdate /tb_top_snake_game/DUT/VGA_G_10
 add wave -noupdate /tb_top_snake_game/DUT/VGA_B_10
@@ -143,13 +144,28 @@ add wave -noupdate /tb_top_snake_game/DOWN
 add wave -noupdate /tb_top_snake_game/RIGHT
 add wave -noupdate /tb_top_snake_game/clk
 add wave -noupdate /tb_top_snake_game/rst
+add wave -noupdate /tb_top_snake_game/hex0eq
+add wave -noupdate /tb_top_snake_game/hex1eq
+add wave -noupdate /tb_top_snake_game/hex2eq
+add wave -noupdate /tb_top_snake_game/hex3eq
+add wave -noupdate /tb_top_snake_game/hex4eq
+add wave -noupdate /tb_top_snake_game/hex5eq
 add wave -noupdate -divider -height 50 {SW Debounce}
 add wave -noupdate /tb_top_snake_game/DUT/sw_debounce_u0/clk
 add wave -noupdate /tb_top_snake_game/DUT/sw_debounce_u0/in_sw
 add wave -noupdate /tb_top_snake_game/DUT/sw_debounce_u0/out_sw
 add wave -noupdate /tb_top_snake_game/DUT/sw_debounce_u0/syn
 add wave -noupdate -radix unsigned /tb_top_snake_game/DUT/sw_debounce_u0/counter
-add wave -noupdate -divider task
+add wave -noupdate -divider -height 50 {Hex Display}
+add wave -noupdate /tb_top_snake_game/DUT/hex_display_u0/clk
+add wave -noupdate /tb_top_snake_game/DUT/hex_display_u0/rst_n
+add wave -noupdate /tb_top_snake_game/DUT/hex_display_u0/num
+add wave -noupdate /tb_top_snake_game/DUT/hex_display_u0/HEX0
+add wave -noupdate /tb_top_snake_game/DUT/hex_display_u0/HEX1
+add wave -noupdate /tb_top_snake_game/DUT/hex_display_u0/HEX2
+add wave -noupdate /tb_top_snake_game/DUT/hex_display_u0/HEX3
+add wave -noupdate /tb_top_snake_game/DUT/hex_display_u0/HEX4
+add wave -noupdate /tb_top_snake_game/DUT/hex_display_u0/HEX5
 TreeUpdate [SetDefaultTree]
 WaveRestoreCursors {{Cursor 1} {14318 ps} 0}
 quietly wave cursor active 1
