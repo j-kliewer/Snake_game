@@ -56,6 +56,22 @@ Also note that these inputs are not debounced as they have already been debounce
 
 ## Init Screen - init_screen.sv
 
+The purpose of Init Screen is to drive the VGA to plot the background of the Snake Game.
+
+Init Screen follows a waitrequest protocol. When waitrequest is high, init screen is unable to process a start command. Once waitrequest is low, it is able to process a start command. Once it receives the start command, it will begin outputting data to drive the VGA, and will set its waitrequest high again.
+
+The protocol can be seen in detail with waveforms below:
+
+//insert init_screen_wait_req.png
+
+The flow of data in Init Screen can be seen in the diagram below:
+
+//insert init_screen_diagram
+
+The State Machine of Init Screen is shown below:
+
+//insert init_screen_statemachine
+
 ## Game Path - game_path.sv
 
 ### Simple Dual Port RAM - simple_dual_port_ram.sv
@@ -68,17 +84,47 @@ Also note that these inputs are not debounced as they have already been debounce
 
 ## Game Plot - game_plot.sv
 
+Game Plot translates the plotting requests by Game Path into coordinates that the VGA can plot.
+
+Game Path thinks in logic terms of a 16x16 grid for its game logic, and its outputs aimed to drive the VGA are also in this 16x16 grid format. Game Plot's goal is to translate this 16x16 grid format to the actual VGA coordinates on screen.
+
+Game Path's 16x16 grid is represented with 96x96 VGA pixels, where each square of Game Path's grid is made up of 6x6 VGA pixels.
+
+Game Path follows a waitrequest protocol. This is the same protocol as displayed in Init Screen.
+
+Game Path's data flow can be seen below:
+
+//game_path_diagram
+
+Game Path's state machine can be seen below:
+
+//game_path_statemachine
+
 ## Hex Display - hex_display.sv
+
+Hex Display's aim is to display the score of a player while playing the game in Hexadecimal format. Hex Display can be used to display an inputed number on the boards' 7 segment hex display in hexadecimal format. This instantiation leaves four of the board's 7-segment hex's blank and displays on just two of them as the maximum attainable score of 254 can be represented with just two hexadecimal numbers.
+
+This module is purely combinational.
+
+Please note that although the module is written to be able to display on all 6 7-segment hex displays, the Parameter given in this project's instantiation specifies that only two of the displays will be used, and thus the other 4 will be hard coded to be blank.
+
+The data flow diagram can be seen below:
+
+//hex_display_diagram
 
 ## VGA IP
 
 The VGA core used in this project was developed at the University of Toronto. This core was introduced to me in the CPEN 311 course at the University of British Columbia. The original website can be found here: [https://www.eecg.utoronto.ca/~jayar/ece241_07F/vga/](https://www.eecg.utoronto.ca/~jayar/ece241_07F/vga/).
 
-The files necessary for this VGA_IP are:
+The files necessary for this VGA IP are:
 - vga_adapter.sv
 - vga_address_translator.sv
 - vga_controller.sv
 - vga_pll.sv
+
+The Black Box diagram of the VGA IP can be seen below:
+
+//vga_ip_blackbox
 
 
 
