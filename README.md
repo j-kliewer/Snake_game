@@ -1,6 +1,39 @@
 # Snake_game
 Snake game implemented on the DE1-SoC
 
+## Table of Contents
+- [Objectives](#objectives)
+- [Introduction](#introduction)
+- [Top Snake Game](#top-snake-game---top_snake_gamesv)
+- [Switch Debounce](#switch-debounce---switch_debouncesv)
+- [Button Sync](#button-sync---button_syncsv)
+- [Init Screen](#init-screen---init_screensv)
+- [Game Path](#game-path---game_pathsv)
+  - [Simple Dual Port RAM](#simple-dual-port-ram---simple_dual_port_ramsv)
+  - [Main State Machine](#main-state-machine)
+  - [Last Pushed Direction](#last-pushed-direction)
+  - [Linear Feedback Shift Register](#linear-feedback-shift-register)
+- [Game Plot](#game-plot---game_plotsv)
+- [Hex Display](#hex-display---hex_displaysv)
+- [VGA IP](#hex-display---hex_displaysv)
+- [Timing Closure](#timing-closure)
+
+## Objectives
+
+- Gain experience with System Verilog design and verification
+- Research and Implement Clock Domain Crossing techniques
+- Integrate external IP into a project
+- Learn about Timing Constraints and achieve Timing Closure
+- Gain experience Inferring Memory blocks within HDL code 
+- Explore and implement Randomization in hardware
+- Improve project skills from beginning to end:
+  - Idea creation
+  - Design and implementation
+  - Research
+  - Verification
+  - Iteration
+  - Technical writeup and presentation
+
 ## Introduction
 
 This project was created to implement a snake game in hardware on the [De1-SoC development board](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&CategoryNo=205&No=836&PartNo=1#contents).
@@ -32,15 +65,13 @@ A diagram of the state machine is as follows:
 
 ## Switch Debounce - switch_debounce.sv
 
-The Switch Debounce module is created to first synchronize the input from SW[9] on the DE1-SoC board and then debounce the output of the synchronizer. Note: SW[9] is completely asynchronous.
+The Switch Debounce module is created to first synchronize the input from SW[9] on the DE1-SoC board and then debounce the output of the synchronizer. This signal is used as a reset to the entire system. Note: SW[9] is completely asynchronous.
 
 The synchronizer is implemented using two flip flops in series. The debounce circuit is implemented using a counter to enable a final flip flop. This enable is turned on when the counter is greater than or equal to a value specified as a parameter passed to this module.
 
 The counter is only triggered when the output of the synchronizer and the output of the debounce flip flop are not equal. 
 
 Since the switch is driven by human control, it will be much slower than the clock speed of the FPGA and there is no concern about loss of data. 
-
-From a higher level viewpoint of the design, the output of this switch debounce circuit is used as a reset signal for the entire design.
 
 A diagram of the Switch Debounce Circuit can be seen below:
 
@@ -50,7 +81,7 @@ A diagram of the Switch Debounce Circuit can be seen below:
 
 The Button Sync module implements synchronizers for each of the 4 buttons on the DE1-SoC board which are used to control the direction of the snake and the game. These 4 buttons are completely asynchronous. 
 
-Technically there could be issues with these input 'data packets' of the buttons crossing into the FPGA clock domain, i.e. the 'data packet' of sampled buttons at the input of the synchronizer may not all appear on the output of the synchronizer at the same time. This, however, is not a concern as these buttons are human controlled and the difference of one single 20 ns clock cycle is negligible compared to the human reaction speed of 250 ms.
+Technically there could be issues with these input 'data packets' of the buttons crossing into the FPGA clock domain, i.e. the 'data packet' of sampled buttons at the input of the synchronizer may not all appear on the output of the synchronizer at the same time due to potential metastability and subsequent settling. This, however, is not a concern as these buttons are human controlled and the difference of one single 20 ns clock cycle is negligible compared to the human reaction speed of 250 ms.
 
 Also note that these inputs are not debounced as they have already been debounced externally by a Schmitt Trigger on the board.
 
@@ -68,7 +99,7 @@ The protocol can be seen in detail with waveforms below:
 
 ![Init Screen Waitrequest Protocol](supplemental/init_screen_waitreq.PNG)
 
-The way that Init Screen Works is it cycles x and y coordinates through (0,0) to (159,119) (all of the pixels on the vga) and uses comparators to determine if the pixel should be black (background) or white (border of game grid). A code snippet of the comparitors is shown below:
+The way that Init Screen works is it cycles x and y coordinates through (0,0) to (159,119) (all of the pixels on the VGA) and uses comparators to determine if the pixel should be black (background) or white (border of game grid). A code snippet of the comparators is shown below:
 
 ```systemverilog
                 //to set up outline, set up a width of the outline as 6 pixels
@@ -90,6 +121,10 @@ The way that Init Screen Works is it cycles x and y coordinates through (0,0) to
                 end
 ```
 
+The final product of a properly displayed background can be seen below:
+
+//insert picture of background of game
+
 The flow of data in Init Screen can be seen in the diagram below:
 
 ![Init Screen Diagram](supplemental/init_screen_diagram.png)
@@ -98,9 +133,6 @@ The State Machine of Init Screen is shown below:
 
 //insert init_screen_statemachine
 
-The final product of a properly displayed background can be seen below:
-
-//insert picture of background of game
 
 ## Game Path - game_path.sv
 
@@ -120,27 +152,29 @@ Game Path thinks in logic terms of a 16x16 grid for its game logic, and its outp
 
 Game Path's 16x16 grid is represented with 96x96 VGA pixels, where each square of Game Path's grid is made up of 6x6 VGA pixels.
 
-Game Path follows a waitrequest protocol. This is the same protocol as displayed in Init Screen.
+Game Plot follows a waitrequest protocol. This is the same protocol as displayed in Init Screen.
 
-Game Path's data flow can be seen below:
+Game Plot's data flow can be seen below:
 
 ![Game Plot Diagram](supplemental/game_plot_diagram.png)
 
-Game Path's state machine can be seen below:
+Game Plot's state machine can be seen below:
 
-//game_path_statemachine
+//game_plot_statemachine
 
 ## Hex Display - hex_display.sv
 
-Hex Display's aim is to display the score of a player while playing the game in Hexadecimal format. Hex Display can be used to display an inputed number on the boards' 7 segment hex display in hexadecimal format. This instantiation leaves four of the board's 7-segment hex's blank and displays on just two of them as the maximum attainable score of 254 can be represented with just two hexadecimal numbers.
+Hex Display's aim is to display the score of a player while playing the game in Hexadecimal format. 
+
+Hex Display can be used to display an inputed number on the boards' 7 segment hex display in hexadecimal format. This instantiation leaves four of the board's 7-segment hex's blank and displays on just two of them as the maximum attainable score of 254 can be represented with just two hexadecimal numbers.
 
 This module is purely combinational.
 
 Please note that although the module is written to be able to display on all 6 7-segment hex displays, the Parameter given in this project's instantiation specifies that only two of the displays will be used, and thus the other 4 will be hard coded to be blank.
 
-The data flow diagram can be seen below:
+Hex Display's data flow diagram can be seen below:
 
-//hex_display_diagram
+![Hex Display Diagram](supplemental/hex_display_diagram.png)
 
 ## VGA IP
 
@@ -157,7 +191,7 @@ The Black Box diagram of the VGA IP can be seen below:
 ![VGA Black Box](supplemental/VGA_blackbox.PNG)
 
 
-##Timing Closure
+## Timing Closure
 
 
 
