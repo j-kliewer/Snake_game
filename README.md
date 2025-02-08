@@ -17,14 +17,14 @@ This project was created to implement a snake game in hardware on the [De1-SoC d
 
 The file structure of the project is as follows:
 
-//insert code_hierarchy.png
+![Code Hierarchy Image](supplemental/code_hierarchy.png)
 
 
 ## Top Snake Game - top_snake_game.sv
 
 A basic flow structure of Top Snake Game is as follows:
 
-//insert snake_game_diagram
+![Snake Game Diagram](supplemental/snake_game_diagram.png)
 
 A diagram of the state machine is as follows:
 
@@ -42,7 +42,9 @@ Since the switch is driven by human control, it will be much slower than the clo
 
 From a higher level viewpoint of the design, the output of this switch debounce circuit is used as a reset signal for the entire design.
 
-//insert switch_debounce_diagram
+A diagram of the Switch Debounce Circuit can be seen below:
+
+![Switch Debounce Diagram](supplemental/switch_debounce_diagram.png)
 
 ## Button Sync - button_sync.sv
 
@@ -52,7 +54,9 @@ Technically there could be issues with these input 'data packets' of the buttons
 
 Also note that these inputs are not debounced as they have already been debounced externally by a Schmitt Trigger on the board.
 
-//insert button_sync_diagram
+A diagram of the Button Sync circuit can be see below:
+
+![Button Sync Diagram](supplemental/button_sync_diagram.png)
 
 ## Init Screen - init_screen.sv
 
@@ -62,15 +66,41 @@ Init Screen follows a waitrequest protocol. When waitrequest is high, init scree
 
 The protocol can be seen in detail with waveforms below:
 
-//insert init_screen_wait_req.png
+![Init Screen Waitrequest Protocol](supplemental/init_screen_waitreq.PNG)
+
+The way that Init Screen Works is it cycles x and y coordinates through (0,0) to (159,119) (all of the pixels on the vga) and uses comparators to determine if the pixel should be black (background) or white (border of game grid). A code snippet of the comparitors is shown below:
+
+```systemverilog
+                //to set up outline, set up a width of the outline as 6 pixels
+                // x axis: [26-31] left outline and [128-133] right outline
+                // y axis: [6-11] top outline and [108-113] bottom outline
+                if( x >= 8'd26 && x <= 8'd133 && y >= 7'd6 && y <= 7'd113) begin
+                    if( x >= 8'd32 && x <= 8'd127 && y >= 7'd12 && y <= 7'd107) begin
+                        //inside colour
+                        vga_colour = 3'b000;
+                    end
+                    else begin
+                        //outline colour
+                        vga_colour = 3'b111;
+                    end
+                end
+                else begin
+                    //outside colour
+                    vga_colour = 3'b000;
+                end
+```
 
 The flow of data in Init Screen can be seen in the diagram below:
 
-//insert init_screen_diagram
+![Init Screen Diagram](supplemental/init_screen_diagram.png)
 
 The State Machine of Init Screen is shown below:
 
 //insert init_screen_statemachine
+
+The final product of a properly displayed background can be seen below:
+
+//insert picture of background of game
 
 ## Game Path - game_path.sv
 
@@ -94,7 +124,7 @@ Game Path follows a waitrequest protocol. This is the same protocol as displayed
 
 Game Path's data flow can be seen below:
 
-//game_path_diagram
+![Game Plot Diagram](supplemental/game_plot_diagram.png)
 
 Game Path's state machine can be seen below:
 
@@ -124,8 +154,10 @@ The files necessary for this VGA IP are:
 
 The Black Box diagram of the VGA IP can be seen below:
 
-//vga_ip_blackbox
+![VGA Black Box](supplemental/VGA_blackbox.PNG)
 
+
+##Timing Closure
 
 
 
