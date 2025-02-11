@@ -42,7 +42,7 @@ This project was created to implement a snake game in hardware on the [De1-SoC d
 
   **Mechanics:** A snake that moves on a grid. The direction the snake moves is controlled by the player. At each time step, the head moves forward one square and the tail follows one square. 
 
-  **Objective:** The objective of the game is to collect a Point on the grid. If the snake runs into the Point, the length of the snake increases by one square, and a new Point is plotted at random.
+  **Objective:** The objective of the game is to collect a Point on the grid. If the snake runs into the Point, the length of the snake increases by one square, and a new Point is plotted at random. Note: 'Apple' is sometimes used synonymously with 'Point' within the code.
 
   **Challenge:** The snake must avoid both the walls of the grid and the snake tail that is trailing behind the snake head. If the snake collides with either, the game is over.
 
@@ -137,12 +137,95 @@ The State Machine of Init Screen is shown below:
 ## Game Path - game_path.sv
 
 ### Simple Dual Port RAM - simple_dual_port_ram.sv
+Simple Dual Port RAM module is created to infer RAM within a code block. This memory is created to utilize the M10K memory block available on the Cyclone V FPGA. It is also inferred to utilize pass through logic when reading and writing to the same cell within the same clock cycle.
+
+The memory inferred is 8X256 bits, and is a simple dual port memory, meaning that one port can write to the memory each clock cycle, and one port can read from the memory each clock cycle.
+
+In the context of the game, this memory is used to implement FIFO memory with 256 available spots to hold an 8-bit location refering to one square on the game grid. This memory is used to hold the location of each segment of the snake in order from head to tail. At each game step, we add a new 8-bit head location and read the tail location if applicable.
+
 
 ### Main State Machine
 
 ### Last Pushed Direction
 
+The Last Pushed Direction section of the code determines what the last button that was pushed is, and thus what direction the user has specified the snake should go in.
+
+The snake however is not allowed to turn 180 degrees back on itself, thus we must take into account the direction the snake is currently headed in, in this case denoted 'direction'.
+
+The code can be seen below:
+
+( 'in_down, in_left, in_right, in_up' refer to user inputs on buttons; 'direction' is used to indicate current direction of snake, 'last_direction' captures the direction the user indicates the snake should move in next)
+
+```systemverilog
+   enum logic [1:0] {LEFT, RIGHT, UP, DOWN} last_direction, direction;
+    //sequential
+    //synchronous reset
+    //drives last_direction
+    always_ff@(posedge clk) begin
+        //does not allow change in direction by 180 degrees
+        if(!rst_n || (in_down && direction != UP))
+            last_direction <= DOWN;
+        else if(in_left && direction != RIGHT)
+            last_direction <= LEFT;
+        else if(in_right && direction != LEFT)
+            last_direction <= RIGHT;
+        else if(in_up && direction != DOWN)
+            last_direction <= UP;
+        
+    end
+```
+
+Note that there is a hierarchy of which button will be remembered if multiple are pressed at once. I beleive this does not take away from the gameplay as it is the player's error if they have multiple buttons pushed at once. Since the clock speed sampling the user input is also much faster than human reaction time, if the player fixes their input, their fixed input will be captured.
+
+
 ### Linear Feedback Shift Register
+
+A linear feedback shift register (LFSR) is a common device used to generate psuedo-random sequences in computers. The size of the LFSR determines how many cycles the LFSR can continue to generate new outputs before repeating the sequence. The seed determines where in this sequence the LFSR begins.
+
+In the context of the game, this LFSR is used to generate a random location to place the next Point square when a Point is collected.
+
+In order for the Point location to be random and the sequence to not repeat itself within the game, we need 256 * 8 random bits (256 since a maximum of 254 Points can be collected before the snake occupies the entire grid, and 8 since each location is referenced by an 8 bit number). Thus, we need 2^11 random bits, which can be generated from an 11-bit LFSR.
+
+Note an 11-bit LFSR can only generate 2^11 - 1 random numbers as it will never generate all 1's output if implemented with an XNOR.
+
+The implementation of an 11-bit LFSR can be seen below:
+
+![11 bit LFSR Diagram](supplemental/lfsr_diagram.png)
+
+In code:
+```systemverilog
+lfsr <= {lfsr[9:0],~(lfsr[10] ^ lfsr[8])}; //shift and xnor for the new bit
+```
+
+To generate 8 new random bits each time a location for a new Point is needed, the LFSR shifts 8 times.
+
+The other challenge to create a random sequence within the game is creating a random seed for the LFSR sequence. To create this random seed, I used an 11 bit counter. In order to begin the game, the user must press a button, after which, while a button (typically the one to start the game, but could technically be any) is pressed, the counter continues to count until all buttons are released. The value that the counter ends at is used as the seed. This allows a truly random user input to the game to seed the psuedo random LFSR, making it fairly random. The fact that the counter is counting very fast compared to the time that a button will be pressed also adds to this randomness.
+
+The code for capturing the seed can be seen below:
+
+```systemverilog
+           //Creating random seed once per game
+                //wait for first button push out of idle to start counting
+                if (state == IDLE && start) begin  //skip as soon as state is out of IDLE
+                    seed_count_flag <= 1'b1;
+                    seed_count <= 11'd0;
+                end
+                else if (seed_count_flag) begin
+                    if(in_left || in_up || in_down || in_right ) begin
+                        seed_count <= seed_count + 11'd1; //if initial press is still ongoing, count
+                    end
+                    else begin //get here once no button is being pushed, keep seed_count by turning off flag
+                        seed_count_flag <= 1'b0; //if initial press is released, stop counting, seed has been generated 'randomly'
+                        if(seed_count == 11'b111_1111_1111) begin //cannot use all 1's for xnor lfsr
+                            lfsr <= 11'd0;
+                        end
+                        else begin
+                            lfsr <= seed_count;
+                        end
+                    end
+                end
+
+```
 
 ## Game Plot - game_plot.sv
 
