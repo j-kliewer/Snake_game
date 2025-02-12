@@ -175,7 +175,7 @@ The code can be seen below:
     end
 ```
 
-Note that there is a hierarchy of which button will be remembered if multiple are pressed at once. I beleive this does not take away from the gameplay as it is the player's error if they have multiple buttons pushed at once. Since the clock speed sampling the user input is also much faster than human reaction time, if the player fixes their input, their fixed input will be captured.
+Note that there is a hierarchy of which button will be remembered if multiple are pressed at once. I believe this does not take away from the gameplay as it is the player's error if they have multiple buttons pushed at once. Since the clock speed sampling the user input is also much faster than human reaction time, if the player fixes their input, their fixed input will be captured.
 
 
 ### Linear Feedback Shift Register
