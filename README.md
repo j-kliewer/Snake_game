@@ -137,7 +137,7 @@ The State Machine of Init Screen is shown below:
 ## Game Path - game_path.sv
 
 ### Simple Dual Port RAM - simple_dual_port_ram.sv
-Simple Dual Port RAM module is created to infer RAM within a code block. This memory is created to utilize the M10K memory block available on the Cyclone V FPGA. It is also inferred to utilize pass through logic when reading and writing to the same cell within the same clock cycle.
+The Simple Dual Port RAM module is created to infer RAM within a code block. This memory is created to utilize the M10K memory block available on the Cyclone V FPGA. It is also inferred to utilize pass through logic when reading and writing to the same cell within the same clock cycle.
 
 The memory inferred is 8X256 bits, and is a simple dual port memory, meaning that one port can write to the memory each clock cycle, and one port can read from the memory each clock cycle.
 
@@ -186,7 +186,7 @@ In the context of the game, this LFSR is used to generate a random location to p
 
 In order for the Point location to be random and the sequence to not repeat itself within the game, we need 256 * 8 random bits (256 since a maximum of 254 Points can be collected before the snake occupies the entire grid, and 8 since each location is referenced by an 8 bit number). Thus, we need 2^11 random bits, which can be generated from an 11-bit LFSR.
 
-Note an 11-bit LFSR can only generate 2^11 - 1 random numbers as it will never generate all 1's output if implemented with an XNOR.
+Note an 11-bit LFSR can only generate 2^11 - 1 random numbers as it will never generate an output of all 1's if implemented with an XNOR.
 
 The implementation of an 11-bit LFSR can be seen below:
 
@@ -199,7 +199,7 @@ lfsr <= {lfsr[9:0],~(lfsr[10] ^ lfsr[8])}; //shift and xnor for the new bit
 
 To generate 8 new random bits each time a location for a new Point is needed, the LFSR shifts 8 times.
 
-The other challenge to create a random sequence within the game is creating a random seed for the LFSR sequence. To create this random seed, I used an 11 bit counter. In order to begin the game, the user must press a button, after which, while a button (typically the one to start the game, but could technically be any) is pressed, the counter continues to count until all buttons are released. The value that the counter ends at is used as the seed. This allows a truly random user input to the game to seed the psuedo random LFSR, making it fairly random. The fact that the counter is counting very fast compared to the time that a button will be pressed also adds to this randomness.
+The other challenge to create a random sequence within the game is creating a random seed for the LFSR sequence. To create this random seed, I use an 11 bit counter. In order to begin the game, the user must press a button, after which, while a button (typically the one to start the game, but could technically be any) is pressed, the counter continues to count until all buttons are released. The value that the counter ends at is used as the seed. This allows a truly random input to seed the LFSR, making it fairly random. The fact that the counter is counting very fast compared to the time that a button will be pressed also adds to this randomness.
 
 The code for capturing the seed can be seen below:
 
@@ -275,6 +275,56 @@ The Black Box diagram of the VGA IP can be seen below:
 
 
 ## Timing Closure
+
+In order to close Timing on the design, an SDC file is needed to constrain the design in Quartus.
+
+All input paths, output paths must be constrained, and all clocks within the design must be defined.
+
+Inputs to the design:
+- KEY[3:0]
+- SW[9]
+
+Outputs from the design:
+- [6:0] HEX0
+- [6:0] HEX1
+- [6:0] HEX2
+- [6:0] HEX3
+- [6:0] HEX4
+- [6:0] HEX5
+- VGA_PLOT
+- [7:0] VGA_X
+- [6:0] VGA_Y
+- [2:0] VGA_COLOUR
+- [7:0] VGA_R
+- [7:0] VGA_G
+- [7:0] VGA_B
+- VGA_HS
+- VGA_VS
+- VGA_CLK
+
+Clocks:
+50 Mhz CLOCK_50
+25 MHz Clock used within VGA IP
+
+Both Inputs are fully asynchronous, so in order to constrain them, I added Maximum path delay parameters so that the paths were not mapped unecessarily long. Since the hold times did not matter, I set them as false paths.
+
+To constrain the path between each register within the design, the clocks need to be defined. In order to do this I specified CLOCK_50 as having a period of 20 ns (50 MHz) and allowed the PLL clocks to be derived.
+
+The Hex outputs are completely asynchronous, thus to make sure the paths were not unnecessarily long, I constrained the Max Delay values, and set the hold delays as false paths as they do not matter.
+
+The VGA outputs proved to be the most important paths to constrain. These outputs were headed for a [VGA DAC ADV7123](https://www.analog.com/media/en/technical-documentation/data-sheets/ADV7123-EP.pdf) chip on the board who's clock is driven by VGA_CLK output. All of the VGA outputs therefore are latched by a 25 Mhz clk and require specific timing parameters.
+
+The Output delay calculations are as follows:
+
+Output Delay Max = Board Delay Max - Board Clock Skew Min + Time setup
+  Where: Board Clock Skew Min = Minimum External Clock Delay to the External Device - Maximum External Clock Delay to the FPGA
+
+Output Delay Min = Board Delay Min - Board Clock Skew Max - Time hold
+  Where: Board Clock Skew Max = Maximum External Clock Delay to the External Device - Minimum External Clock Delay to the FPGA
+
+Unfortunately the board delay parameters are not available for the DE1-SoC, thus I assume the board delay is 0.13 ns, a calculation assuming board delay is about .65 ns/cm travelled. 2 cm based on measurement of the board, from the FPGA to the VGA DAC.
+
+The Setup and Hold time are taken from the VGA DAC specsheet.
 
 
 
