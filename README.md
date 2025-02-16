@@ -46,8 +46,13 @@ This project was created to implement a snake game in hardware on the [De1-SoC d
 
   **Challenge:** The snake must avoid both the walls of the grid and the snake tail that is trailing behind the snake head. If the snake collides with either, the game is over.
 
-  //insert photo of snake game
 
+https://github.com/user-attachments/assets/b48ee1c6-1af1-48ac-a919-0df670f72795
+
+[Snake Game Movie](supplemental/snake_game_movie.MOV)
+
+
+  
 The file structure of the project is as follows:
 
 ![Code Hierarchy Image](supplemental/code_hierarchy.png)
@@ -123,7 +128,7 @@ The way that Init Screen works is it cycles x and y coordinates through (0,0) to
 
 The final product of a properly displayed background can be seen below:
 
-//insert picture of background of game
+<img src="supplemental/init_screen_background.jpg" alt="Game Background" style="width:40%; height:auto;">
 
 The flow of data in Init Screen can be seen in the diagram below:
 
@@ -152,6 +157,8 @@ The Last Pushed Direction section of the code determines what the last button th
 
 The snake however is not allowed to turn 180 degrees back on itself, thus we must take into account the direction the snake is currently headed in, in this case denoted 'direction'.
 
+Note: last_direction is forced to DOWN when in INIT_TAIL state so that the game begins with the snake travelling downward.
+
 The code can be seen below:
 
 ( 'in_down, in_left, in_right, in_up' refer to user inputs on buttons; 'direction' is used to indicate current direction of snake, 'last_direction' captures the direction the user indicates the snake should move in next)
@@ -163,7 +170,7 @@ The code can be seen below:
     //drives last_direction
     always_ff@(posedge clk) begin
         //does not allow change in direction by 180 degrees
-        if(!rst_n || (in_down && direction != UP))
+        if(!rst_n || state == INIT_TAIL || (in_down && direction != UP))
             last_direction <= DOWN;
         else if(in_left && direction != RIGHT)
             last_direction <= LEFT;
@@ -304,6 +311,7 @@ Outputs from the design:
 
 Clocks:
 50 Mhz CLOCK_50
+
 25 MHz Clock used within VGA IP
 
 Both Inputs are fully asynchronous, so in order to constrain them, I added Maximum path delay parameters so that the paths were not mapped unecessarily long. Since the hold times did not matter, I set them as false paths.
@@ -313,6 +321,10 @@ To constrain the path between each register within the design, the clocks need t
 The Hex outputs are completely asynchronous, thus to make sure the paths were not unnecessarily long, I constrained the Max Delay values, and set the hold delays as false paths as they do not matter.
 
 The VGA outputs proved to be the most important paths to constrain. These outputs were headed for a [VGA DAC ADV7123](https://www.analog.com/media/en/technical-documentation/data-sheets/ADV7123-EP.pdf) chip on the board who's clock is driven by VGA_CLK output. All of the VGA outputs therefore are latched by a 25 Mhz clk and require specific timing parameters.
+
+The VGA_CLK port is a clock, and thus does not need to be constrainted.
+
+To constraint the rest of the VGA Outputs, I specified 'set_output_delay' -max and -min values.
 
 The Output delay calculations are as follows:
 
@@ -325,6 +337,10 @@ Output Delay Min = Board Delay Min - Board Clock Skew Max - Time hold
 Unfortunately the board delay parameters are not available for the DE1-SoC, thus I assume the board delay is 0.13 ns, a calculation assuming board delay is about .65 ns/cm travelled. 2 cm based on measurement of the board, from the FPGA to the VGA DAC.
 
 The Setup and Hold time are taken from the VGA DAC specsheet.
+
+The Clock Skew values were then calculated. Since the Clock driving the latch on the VGA DAC is VGA_CLK, derived from a PLL on the FPGA, I specified the External CLock Delay to the FPGA as 0. I specified the External Clock Delay to the External Device to be the same as board delay, since VGA_CLK will have to travel the same distance from the FPGA to the VGA DAC as the other signals.
+
+The Board Delay values and Board Clock Skew values thus cancel each other out, so this estimation of board delay is not important in the end.
 
 
 
