@@ -3,8 +3,6 @@
 module tb_hex_display();
 
     //variables
-    logic clk;
-    logic rst_n;
     logic [23:0] num;
 
     logic [6:0] HEX0, HEX1, HEX2, HEX3, HEX4, HEX5;
@@ -14,8 +12,7 @@ module tb_hex_display();
     /*hex_display 
     #(parameter NUM_HEX = 3) (
     //inputs
-    input logic clk, 
-    input logic rst_n, 
+
     input logic [(NUM_HEX<<2)-1:0] num,
     //outputs
     output logic [6:0] HEX0, 
@@ -27,8 +24,6 @@ module tb_hex_display();
     );*/
     hex_display #(.NUM_HEX(6)) DUT(
         //inputs
-        .clk(clk),
-        .rst_n(rst_n),
         .num(num),
         //outputs
         .HEX0(HEX0),
@@ -39,20 +34,8 @@ module tb_hex_display();
         .HEX5(HEX5)
     );
 
-    initial begin
-        clk = 1'b0;
-        forever #5clk = ~clk;
-    end
-
 
     initial begin
-
-        //reset
-        #5
-        @(posedge clk) @(negedge clk)
-        rst_n = 1'b0;
-        @(posedge clk) @(negedge clk)
-        rst_n = 1'b1;
 
         num = 24'h123456;
         #5

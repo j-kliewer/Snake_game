@@ -1,13 +1,11 @@
 module hex_display #(parameter NUM_HEX = 3) 
-                            (input logic clk, input logic rst_n, input logic [(NUM_HEX<<2)-1:0] num,
+                            (input logic [(NUM_HEX<<2)-1:0] num,
                             output logic [6:0] HEX0, output logic [6:0] HEX1, output logic [6:0] HEX2,
                             output logic [6:0] HEX3, output logic [6:0] HEX4, output logic [6:0] HEX5);
     /*
     //parameters
     NUM_HEX = number of hex displays to use
     //inputs 
-    clk
-    rst_n
     [(NUM_HEX<<2)-1:0] num //need to multiply by 4 since 4 bits per hex
     //outputs
     [6:0] HEX0, HEX1, HEX2, HEX3, HEX4, HEX5

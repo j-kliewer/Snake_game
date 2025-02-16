@@ -1,4 +1,4 @@
-module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0] STALL_DECR = 26'd39_000)
+module game_path #(parameter [25:0] STALL_BASE = 26'd12_500_000, parameter [25:0] STALL_DECR = 26'd39_000)
                 (input logic clk, input logic rst_n, input logic start, input logic in_left, 
                  input logic in_right, input logic in_up, input logic in_down, output logic waitrequest,
                  //for game_plot
@@ -63,7 +63,7 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0
 
     //variables
 
-    logic [7:0] new_head, head, last_tail, apple; //[7:4] y coord, [3:0] x coord
+    logic [7:0] new_head, head, last_tail, apple, neck; //[7:4] y coord, [3:0] x coord
     logic [7:0] length; //holds length of snake
     logic [26:0] count, stall_num; //used to stall for user to see the new game state(take a turn)
     logic out_of_bounds_flag; //used to look for collision/death
@@ -108,6 +108,16 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0
     );
 
     ////////////////////////////////////////////////////////////////////
+    //States used in main state macine need to be defined before last pressed direction
+    ////////////////////////////////////////////////////////////////////
+
+    enum logic [3:0] {IDLE,
+                      INIT_APPLE, INIT_HEAD, INIT_TAIL, 
+                      STALL, COLLISION, HEAD, HEAD_PLOT, NECK, NECK_PLOT, TAIL, TAIL_PLOT, APPLE, APPLE_PLOT, 
+                      DEATH_STALL, DEATH} state;
+
+
+    ////////////////////////////////////////////////////////////////////
     //Latch User input of last pressed direction
     ////////////////////////////////////////////////////////////////////
 
@@ -119,12 +129,10 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0
         //does not allow change in direction by 180 degrees
 
         //need to make sure button used to start game does not change default starting direction as down
-        /*if(state == IDLE) begin //only uses button to start game in IDLE, keeps
-        end*/
-        //maybe tweak default list / how key presses are processed
+        //state == INIT_TAIL will be true until that starting button press is released, and will achieve default start direction as down
 
         //else begin
-        if(!rst_n || (in_down && direction != UP))
+        if(!rst_n || state == INIT_TAIL || (in_down && direction != UP))
             last_direction <= DOWN;
         else if(in_left && direction != RIGHT)
             last_direction <= LEFT;
@@ -188,7 +196,6 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0
     //Drive main state machine sequence
     ////////////////////////////////////////////////////////////////////
 
-    enum logic [3:0] {IDLE, INIT_APPLE, INIT_HEAD, INIT_TAIL, STALL, COLLISION, HEAD, HEAD_PLOT, TAIL, TAIL_PLOT, APPLE, APPLE_PLOT, DEATH_STALL, DEATH, DEATH_END} state;
     //sequential
     //synchronous reset
     //drives we, wr_addr, wr_data, rd_addr for SRAM FIFO memory
@@ -209,6 +216,8 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0
             simple_mem <= 256'd0;
             //reset hex_points
             hex_points <= 8'd0;
+            //make sure game_plot is off
+            game_plot <= 1'b0;
         end
         else begin
             case(state)
@@ -260,7 +269,7 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0
                         game_plot <= 1'b1;
                         game_x <= head[3:0]; //7
                         game_y <= head[7:4]; //1
-                        game_colour <= WHITE; //white
+                        game_colour <= GREEN; //white
                     end
                 end
                 INIT_HEAD: begin
@@ -277,9 +286,13 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0
                     if(!game_plot_waitrequest) begin //once accepted, continue to main game loop
                         //turn off plots
                         game_plot <= 1'b0;
-                        //go to stall state
-                        state <= STALL;
-                        count <= 26'd0;
+
+                        //make sure all buttons are released before moving to stall, makes sure starting direction is downward no matter which button is used to begin game
+                        if(!(in_left || in_up || in_down || in_right ))begin 
+                            //go to stall state
+                            state <= STALL;
+                            count <= 26'd0;
+                        end  
                     end
                 end
                 STALL: begin
@@ -302,6 +315,7 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0
                         state <= HEAD;
                         //update head
                         head <= new_head;
+                        neck <= head;
                         //read tail from FIFO, will update (tail_ptr) rd_ptr later if tail needs to move
                         rd_addr <= rd_ptr;
                     end
@@ -319,11 +333,25 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0
                     game_plot <= 1'b1;
                     game_x <= head[3:0];
                     game_y <= head[7:4];
-                    game_colour <= WHITE;
+                    game_colour <= GREEN;
                 end
                 HEAD_PLOT: begin
                     //turn off write to FIFO
                     we <= 1'b0;
+                    if(!game_plot_waitrequest) begin //move on once plot is underway
+                        game_plot <= 1'b0;
+                        state <= NECK;
+                    end
+                end
+                NECK: begin //neck is added so that head can be differentiated from body
+                    //covers old head with white square
+                    state <= NECK_PLOT;
+                    game_plot <= 1'b1;
+                    game_x <= neck[3:0];
+                    game_y <= neck[7:4];
+                    game_colour <= WHITE;
+                end
+                NECK_PLOT: begin
                     if(!game_plot_waitrequest) begin //move on once plot is underway
                         game_plot <= 1'b0;
                         if(head == apple) begin //if head has eaten apple, plot new apple (tail can stay same as length increases)
@@ -338,16 +366,16 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0
                     end
                 end
                 TAIL: begin //last_tail is still white, but not included in simple_mem, rd_data holds body segment one up from current plotted tail
-                    state <= TAIL_PLOT;
                     //receive and save new last tail
                     last_tail <= rd_data;
                     //update tail pointer to not include new last_tail
                     rd_ptr <= rd_ptr + 1'b1;
-                    //update simple_mem to not include 'new' last_tail
+                    //update simple_mem to not include 'new' last_tail, referring to what will become the last plotted white square of snake after this plotting
                     simple_mem[rd_data] <= 1'b0;
                     if(last_tail != head) begin //if the head does not replace the last_tail plot it (cover it with black)
                         //plot last tail black, note using past value as tail is kept ahead of plotted one for collision calculation
                         //ie the head can replace where the tail used to be in one cycle
+                        state <= TAIL_PLOT;
                         game_plot <= 1'b1;
                         game_x <= last_tail[3:0];
                         game_y <= last_tail[7:4];
@@ -409,9 +437,9 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0
                         game_colour <= BLACK;
                     end
                 end
-                DEATH: begin //fastest way to cover the worm is to read its location from memory
-                    if(length > 8'd1) begin //need to cover all lengths of worm, length was not decreased while covering last_tail to account for apple needing to be covered as well
-                        if(!game_plot_waitrequest) begin //once accepted, give next request to cover worm
+                DEATH: begin //fastest way to cover the snake is to read its location from memory
+                    if(length > 8'd1) begin //need to cover all lengths of snake, length was not decreased while covering last_tail to account for apple needing to be covered as well
+                        if(!game_plot_waitrequest) begin //once accepted, give next request to cover snake
                         //cover read segment
                         game_plot <= 1'b1;
                         game_x <= rd_data[3:0];
@@ -438,16 +466,13 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0
                     else begin
                         if(!game_plot_waitrequest) begin //once accepted, go back to idle
                             game_plot <= 1'b0;
-                            state <= DEATH_END;
+                            //wait for user to release button before going to idle so new game is not started
+                            if(!(in_left || in_up || in_down || in_right ))begin 
+                                state <= IDLE;
+                                //make sure the simple_mem resets before new game
+                                simple_mem <= 256'd0;
+                            end
                         end
-                    end
-                end
-                DEATH_END: begin
-                    //wait for user to release button before going to idle so new game is not started
-                    if(!(in_left || in_up || in_down || in_right ))begin 
-                        state <= IDLE;
-                        //make sure the screen resets before new game
-                        simple_mem <= 256'd0;
                     end
                 end
             endcase
@@ -478,6 +503,10 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0
             end
             HEAD_PLOT: begin
             end
+            NECK: begin
+            end
+            NECK_PLOT: begin
+            end
             TAIL: begin
             end
             TAIL_PLOT: begin
@@ -489,8 +518,6 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0
             DEATH_STALL: begin
             end
             DEATH: begin
-            end
-            DEATH_END: begin
             end
         endcase
     end
@@ -528,7 +555,7 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd25_000_000, parameter [25:0
                     end
                 end
 
-            //shifting 8 bits per time hiting apple (only shifting one bit  per new apple fave not very random results, low number stayed low)
+            //shifting 8 bits per time hitting apple (only shifting one bit per new apple not very random results, low number stayed low)
             //since we want lfsr to cycle through 256 8-bit numbers we need (2^11) random numbers to get this before repeating
             //only get 2^11 - 1 random numbers since all ones will never be hit
             if(state == APPLE_PLOT && !game_plot_waitrequest) begin //used as this only occurs for one clk cycle in apple loop
