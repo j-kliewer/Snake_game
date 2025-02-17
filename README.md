@@ -76,6 +76,13 @@ A diagram of the state machine is as follows:
 
 ![Snake Game State Machine](supplemental/top_statemachine.png)
 
+A brief description of each state is as follows:
+
+- IDLE: Prompt init_screen to begin, move to INIT_SCREEN state
+- INIT_SCREEN: Wait for init_screen to accept prompt, move to INIT_SCREEN2
+- INIT_SCREEN2: Wait for init_screen to finish, prompt game_path to start
+- GAME_PATH: Stay in this state where game_path is running
+
 
 
 
@@ -158,7 +165,10 @@ The State Machine of Init Screen is shown below:
 
 ![Init Screen State Machine](supplemental/init_screen_statemachine.png)
 
+A brief description of each state is as follows:
 
+- IDLE: Wait for starting protocol to be received then set x=0, y=0, and move to FILL
+- FILL: Cycle through each pixel coordinate, (x,y) = (0,0) to (159,119), then return to IDLE
 
 
 
@@ -169,6 +179,8 @@ Game Path is used as the brain of a snake game. This module is what converts the
 Note that the game pixels are passed to the game_plot module who interacts with the VGA IP to display on the VGA. Also note that the player score is provided to the hex_display module that drives the 7-segment hex display.
 
 This module not only processes the game, but also processes the start, end, and reset of a game.
+
+Note that Game Path follows the same protocol as Init Screen.
 
 The general data flow of game_path, it's nested memory module, and blocks of logic can be seen in the diagram below:
 
@@ -193,6 +205,97 @@ The state machine of Game Path can be seen below:
 
 ![Game Path State Machine](supplemental/game_path_statemachine.png)
 
+A brief description of each state's function can be found below:
+
+- IDLE:
+  - Wait for starting protocol and a user button to be pushed.
+    - stall_num = STALL_BASE, head = (7,1), last_tail = (7,0), apple = (8,8), direction = DOWN, length = 2, hex_points = 0, write head to FIFO RAM, set wr_ptr and rd_ptr for FIFO RAM, write head to simple_mem, give command to plot apple pixel red
+    - Move to INIT_APPLE
+- INIT_APPLE:
+  - End write to RAM 
+  - Wait for apple plot command to be received by game_plot.
+    - Give command to plot head pixel green
+    - Move to INIT_HEAD
+- INIT_HEAD:
+  - Wait for head plot command to be received by game_plot.
+      - Give command to plot tail pixel white
+      - Move to INIT_TAIL
+- INIT_TAIL:
+  - Wait for tail plot command to be received by game_plot.
+    - End plotting
+    - Wait for all user buttons to be released.
+      - Set count = 0
+      - Move to STALL 
+- STALL:
+  - Increase count until greater than stall_num
+    - Update direction = last_direction (from last_pushed direction)
+    - Move to COLLISION
+- COLLISION:
+  - If snake is out of bounds or new_head collides with the snake body
+    - Read tail from FIFO RAM, update rd_ptr = rd_ptr + 1
+    - Move to DEATH_STALL
+  - Else
+    - Update head = new_head, neck = (old) head, read tail from FIFO RAM
+    - Move to HEAD
+- HEAD:
+  - Write head to FIFO RAM, write head to simple_mem, give command to plot head pixel green
+  - Move to HEAD_PLOT
+- HEAD_PLOT:
+  - End write to RAM
+  - Wait for head plot command to be received by game_plot.
+    - End plotting
+    - Move to NECK
+- NECK:
+  - Give command to plot neck pixel white (covering up previous green head)
+  - Move to NECK_PLOT
+- NECK_PLOT:
+  - Wait for neck plot command to be received by game_plot.
+    - End plotting
+    - If head is on the apple
+      - rand_apple = [7:0] lfsr, length = length + 1, hex_points = hex_points + 1
+      - Move to APPLE
+    - Else
+      - Move to TAIL
+- TAIL:
+  - Update last_tail <= rd_data(tail), rd_ptr = rd_ptr + 1, clear rd_data(tail) from simple_mem (Note non-blocking is specified here for clarity, though all assignments in this state machine are non-blocking)
+  - If (previous) last_tail is not where (the new) head has just been plotted
+    - Give command to plot (previous) last_tail black, covering it
+    - Move to TAIL_PLOT
+  - Else (the new head has already covered the previous last tail)
+    - Set count = 0
+    - Move to STALL
+- TAIL_PLOT:
+  - Wait for tail plot command to be received by game_plot.
+    - End plotting, set count = 0
+    - Move to STALL
+- APPLE:
+  - If rand_apple falls on a segment of the snake
+    - Update rand_apple = rand_apple + 7 (Note 7 chosen as likelihood of adjacent square to also be part of snake is high, increments of 7 spread nicely over grid)
+  - Else
+    - Update apple = rand_apple, give command to plot new random apple red
+    - Move to APPLE_PLOT
+- APPLE_PLOT:
+  - Wait for apple plot command to be received by game_plot.
+    - End plotting, update stall_num = stall_num - STALL_DECR (to make game go faster as more points are collected), set count = 0
+    - Move to STALL
+- DEATH_STALL:
+  - Wait for user button to be pushed. (Allows user to see how they died in the game)
+    - Give command to plot last_tail black, covering it
+    - Move to DEATH
+- DEATH:
+  - If length > 1
+    - Wait for previous cover plot command to be received by game_plot.
+      - Give command to plot rd_data(body segment) black, covering it, length = length - 1, read next body segment from FIFO RAM, update rd_ptr = rd_ptr + 1 (Note read takes 2 cycles, but plot command takes 16, thus it is not an issue)
+  - Else If length == 1 (Note we did not decrease length while covering last_tail, thus allowing one extra to cover apple)
+    - Wait for previous cover plot command to be received by game_plot.
+      - Give command to plot apple black, covering it, length = length - 1
+  - Else
+    - Wait for previous cover plot command to be received by game_plot.
+      - Wait for all user buttons to be released.
+        - Clear simple_mem (Note FIFO RAM does not need to be cleared as it will be written over before it is read in the next game)
+        - Move to IDLE
+
+Note that two types of memory are used to store the snake. The FIFO RAM uses 256x8 bits to store the snake segments in order from head to tail, simple_mem uses 256 bits to indicate if a location on the 16x16 game grid is occupied by the snake.
 
 
 ### Last Pushed Direction
@@ -291,6 +394,8 @@ Game Path thinks in logic terms of a 16x16 grid for its game logic, and its outp
 
 Game Path's 16x16 grid is represented with 96x96 VGA pixels, where each square of Game Path's grid is made up of 6x6 VGA pixels.
 
+Note that the entire VGA grid is 159x119, but the box plotted by init_screen outlines this 96x96 pixel grid.
+
 Game Plot follows a waitrequest protocol. This is the same protocol as displayed in Init Screen.
 
 Game Plot's data flow can be seen below:
@@ -301,7 +406,10 @@ Game Plot's state machine can be seen below:
 
 ![Game Plot State Machine](supplemental/game_plot_statemachine.png)
 
+A brief description of each state is provided below:
 
+- IDLE: Wait for starting protocol to be received, save the given colour, calculate 'base_x' and 'base_y' of the vga grid corresponding to the given 'game_x' and 'game_y' of the game grid, set pixel loop parameters x and y to 0.
+- PLOT: Cycle through VGA pixel loop parameters (x,y) = (0,0) to (5,5) to go through each VGA pixel in the game grid square, then return to IDLE.
 
 
 
