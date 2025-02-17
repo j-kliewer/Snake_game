@@ -288,6 +288,8 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd12_500_000, parameter [25:0
                         game_plot <= 1'b0;
 
                         //make sure all buttons are released before moving to stall, makes sure starting direction is downward no matter which button is used to begin game
+                        //note up to 16 clk cycles could be lost here as !game_plot_waitrequest is true before plotting tail and 16 cycles later after plotting tail
+                        //this however will be miniscule compared to human reaction time to release the buttons
                         if(!(in_left || in_up || in_down || in_right ))begin 
                             //go to stall state
                             state <= STALL;
@@ -440,16 +442,16 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd12_500_000, parameter [25:0
                 DEATH: begin //fastest way to cover the snake is to read its location from memory
                     if(length > 8'd1) begin //need to cover all lengths of snake, length was not decreased while covering last_tail to account for apple needing to be covered as well
                         if(!game_plot_waitrequest) begin //once accepted, give next request to cover snake
-                        //cover read segment
-                        game_plot <= 1'b1;
-                        game_x <= rd_data[3:0];
-                        game_y <= rd_data[7:4]; 
-                        game_colour <= BLACK; 
-                        //one less cell to cover once accepted
-                        length <= length - 8'd1;
-                        //read the next segment up
-                        rd_addr <= rd_ptr;
-                        rd_ptr <= rd_ptr + 1'b1;
+                            //cover read segment
+                            game_plot <= 1'b1;
+                            game_x <= rd_data[3:0];
+                            game_y <= rd_data[7:4]; 
+                            game_colour <= BLACK; 
+                            //one less cell to cover once accepted
+                            length <= length - 8'd1;
+                            //read the next segment up
+                            rd_addr <= rd_ptr;
+                            rd_ptr <= rd_ptr + 1'b1;
                         end
                     end
                     else if (length == 8'd1) begin //need to cover apple aka length = 1 left since not decreased while covering last_tail
@@ -467,6 +469,8 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd12_500_000, parameter [25:0
                         if(!game_plot_waitrequest) begin //once accepted, go back to idle
                             game_plot <= 1'b0;
                             //wait for user to release button before going to idle so new game is not started
+                            //note up to 16 clk cycles could be lost here as !game_plot_waitrequest is true before covering apple and 16 cycles later after plotting tail
+                            //this however will be miniscule for human
                             if(!(in_left || in_up || in_down || in_right ))begin 
                                 state <= IDLE;
                                 //make sure the simple_mem resets before new game
