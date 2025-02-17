@@ -18,6 +18,10 @@ Snake game implemented on the DE1-SoC
 - [VGA IP](#hex-display---hex_displaysv)
 - [Timing Closure](#timing-closure)
 
+
+
+
+
 ## Objectives
 
 - Gain experience with System Verilog design and verification
@@ -34,6 +38,10 @@ Snake game implemented on the DE1-SoC
   - Iteration
   - Technical writeup and presentation
 
+
+
+
+
 ## Introduction
 
 This project was created to implement a snake game in hardware on the [De1-SoC development board](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&CategoryNo=205&No=836&PartNo=1#contents).
@@ -46,16 +54,16 @@ This project was created to implement a snake game in hardware on the [De1-SoC d
 
   **Challenge:** The snake must avoid both the walls of the grid and the snake tail that is trailing behind the snake head. If the snake collides with either, the game is over.
 
-
 https://github.com/user-attachments/assets/b48ee1c6-1af1-48ac-a919-0df670f72795
 
-[Snake Game Movie](supplemental/snake_game_movie.MOV)
-
-
+If above video does not work it is available to download here: [Download Snake Game Movie](supplemental/snake_game_movie.MOV)
   
 The file structure of the project is as follows:
 
 ![Code Hierarchy Image](supplemental/code_hierarchy.png)
+
+
+
 
 
 ## Top Snake Game - top_snake_game.sv
@@ -66,7 +74,18 @@ A basic flow structure of Top Snake Game is as follows:
 
 A diagram of the state machine is as follows:
 
-//insert state machine diagram
+![Snake Game State Machine](supplemental/top_statemachine.png)
+
+A brief description of each state is as follows:
+
+- IDLE: Prompt init_screen to begin, move to INIT_SCREEN state
+- INIT_SCREEN: Wait for init_screen to accept prompt, move to INIT_SCREEN2
+- INIT_SCREEN2: Wait for init_screen to finish, prompt game_path to start
+- GAME_PATH: Stay in this state where game_path is running
+
+
+
+
 
 ## Switch Debounce - switch_debounce.sv
 
@@ -82,6 +101,10 @@ A diagram of the Switch Debounce Circuit can be seen below:
 
 ![Switch Debounce Diagram](supplemental/switch_debounce_diagram.png)
 
+
+
+
+
 ## Button Sync - button_sync.sv
 
 The Button Sync module implements synchronizers for each of the 4 buttons on the DE1-SoC board which are used to control the direction of the snake and the game. These 4 buttons are completely asynchronous. 
@@ -93,6 +116,10 @@ Also note that these inputs are not debounced as they have already been debounce
 A diagram of the Button Sync circuit can be see below:
 
 ![Button Sync Diagram](supplemental/button_sync_diagram.png)
+
+
+
+
 
 ## Init Screen - init_screen.sv
 
@@ -136,10 +163,32 @@ The flow of data in Init Screen can be seen in the diagram below:
 
 The State Machine of Init Screen is shown below:
 
-//insert init_screen_statemachine
+![Init Screen State Machine](supplemental/init_screen_statemachine.png)
+
+A brief description of each state is as follows:
+
+- IDLE: Wait for starting protocol to be received then set x=0, y=0, and move to FILL
+- FILL: Cycle through each pixel coordinate, (x,y) = (0,0) to (159,119), then return to IDLE
+
 
 
 ## Game Path - game_path.sv
+
+Game Path is used as the brain of a snake game. This module is what converts the user inputs into the game that is displayed to the player. This module processes the user buttons as inputs, and drives the game pixels that will be displayed on the VGA and the player score displayed on the hex display. 
+
+Note that the game pixels are passed to the game_plot module who interacts with the VGA IP to display on the VGA. Also note that the player score is provided to the hex_display module that drives the 7-segment hex display.
+
+This module not only processes the game, but also processes the start, end, and reset of a game.
+
+Note that Game Path follows the same protocol as Init Screen.
+
+The general data flow of game_path, it's nested memory module, and blocks of logic can be seen in the diagram below:
+
+![Game Path Diagram](supplemental/game_path_diagram.png)
+
+The Simple Dual Port RAM, State Machine, Last Pushed Direction, and LFSR blocks will be described in depth below.
+
+
 
 ### Simple Dual Port RAM - simple_dual_port_ram.sv
 The Simple Dual Port RAM module is created to infer RAM within a code block. This memory is created to utilize the M10K memory block available on the Cyclone V FPGA. It is also inferred to utilize pass through logic when reading and writing to the same cell within the same clock cycle.
@@ -149,7 +198,105 @@ The memory inferred is 8X256 bits, and is a simple dual port memory, meaning tha
 In the context of the game, this memory is used to implement FIFO memory with 256 available spots to hold an 8-bit location refering to one square on the game grid. This memory is used to hold the location of each segment of the snake in order from head to tail. At each game step, we add a new 8-bit head location and read the tail location if applicable.
 
 
+
 ### Main State Machine
+
+The state machine of Game Path can be seen below:
+
+![Game Path State Machine](supplemental/game_path_statemachine.png)
+
+A brief description of each state's function can be found below:
+
+- IDLE:
+  - Wait for starting protocol and a user button to be pushed.
+    - stall_num = STALL_BASE, head = (7,1), last_tail = (7,0), apple = (8,8), direction = DOWN, length = 2, hex_points = 0, write head to FIFO RAM, set wr_ptr and rd_ptr for FIFO RAM, write head to simple_mem, give command to plot apple pixel red
+    - Move to INIT_APPLE
+- INIT_APPLE:
+  - End write to RAM 
+  - Wait for apple plot command to be received by game_plot.
+    - Give command to plot head pixel green
+    - Move to INIT_HEAD
+- INIT_HEAD:
+  - Wait for head plot command to be received by game_plot.
+      - Give command to plot tail pixel white
+      - Move to INIT_TAIL
+- INIT_TAIL:
+  - Wait for tail plot command to be received by game_plot.
+    - End plotting
+    - Wait for all user buttons to be released.
+      - Set count = 0
+      - Move to STALL 
+- STALL:
+  - Increase count until greater than stall_num
+    - Update direction = last_direction (from last_pushed direction)
+    - Move to COLLISION
+- COLLISION:
+  - If snake is out of bounds or new_head collides with the snake body
+    - Read tail from FIFO RAM, update rd_ptr = rd_ptr + 1
+    - Move to DEATH_STALL
+  - Else
+    - Update head = new_head, neck = (old) head, read tail from FIFO RAM
+    - Move to HEAD
+- HEAD:
+  - Write head to FIFO RAM, write head to simple_mem, give command to plot head pixel green
+  - Move to HEAD_PLOT
+- HEAD_PLOT:
+  - End write to RAM
+  - Wait for head plot command to be received by game_plot.
+    - End plotting
+    - Move to NECK
+- NECK:
+  - Give command to plot neck pixel white (covering up previous green head)
+  - Move to NECK_PLOT
+- NECK_PLOT:
+  - Wait for neck plot command to be received by game_plot.
+    - End plotting
+    - If head is on the apple
+      - rand_apple = [7:0] lfsr, length = length + 1, hex_points = hex_points + 1
+      - Move to APPLE
+    - Else
+      - Move to TAIL
+- TAIL:
+  - Update last_tail <= rd_data(tail), rd_ptr = rd_ptr + 1, clear rd_data(tail) from simple_mem (Note non-blocking is specified here for clarity, though all assignments in this state machine are non-blocking)
+  - If (previous) last_tail is not where (the new) head has just been plotted
+    - Give command to plot (previous) last_tail black, covering it
+    - Move to TAIL_PLOT
+  - Else (the new head has already covered the previous last tail)
+    - Set count = 0
+    - Move to STALL
+- TAIL_PLOT:
+  - Wait for tail plot command to be received by game_plot.
+    - End plotting, set count = 0
+    - Move to STALL
+- APPLE:
+  - If rand_apple falls on a segment of the snake
+    - Update rand_apple = rand_apple + 7 (Note 7 chosen as likelihood of adjacent square to also be part of snake is high, increments of 7 spread nicely over grid)
+  - Else
+    - Update apple = rand_apple, give command to plot new random apple red
+    - Move to APPLE_PLOT
+- APPLE_PLOT:
+  - Wait for apple plot command to be received by game_plot.
+    - End plotting, update stall_num = stall_num - STALL_DECR (to make game go faster as more points are collected), set count = 0
+    - Move to STALL
+- DEATH_STALL:
+  - Wait for user button to be pushed. (Allows user to see how they died in the game)
+    - Give command to plot last_tail black, covering it
+    - Move to DEATH
+- DEATH:
+  - If length > 1
+    - Wait for previous cover plot command to be received by game_plot.
+      - Give command to plot rd_data(body segment) black, covering it, length = length - 1, read next body segment from FIFO RAM, update rd_ptr = rd_ptr + 1 (Note read takes 2 cycles, but plot command takes 16, thus it is not an issue)
+  - Else If length == 1 (Note we did not decrease length while covering last_tail, thus allowing one extra to cover apple)
+    - Wait for previous cover plot command to be received by game_plot.
+      - Give command to plot apple black, covering it, length = length - 1
+  - Else
+    - Wait for previous cover plot command to be received by game_plot.
+      - Wait for all user buttons to be released.
+        - Clear simple_mem (Note FIFO RAM does not need to be cleared as it will be written over before it is read in the next game)
+        - Move to IDLE
+
+Note that two types of memory are used to store the snake. The FIFO RAM uses 256x8 bits to store the snake segments in order from head to tail, simple_mem uses 256 bits to indicate if a location on the 16x16 game grid is occupied by the snake.
+
 
 ### Last Pushed Direction
 
@@ -183,6 +330,7 @@ The code can be seen below:
 ```
 
 Note that there is a hierarchy of which button will be remembered if multiple are pressed at once. I believe this does not take away from the gameplay as it is the player's error if they have multiple buttons pushed at once. Since the clock speed sampling the user input is also much faster than human reaction time, if the player fixes their input, their fixed input will be captured.
+
 
 
 ### Linear Feedback Shift Register
@@ -234,6 +382,10 @@ The code for capturing the seed can be seen below:
 
 ```
 
+
+
+
+
 ## Game Plot - game_plot.sv
 
 Game Plot translates the plotting requests by Game Path into coordinates that the VGA can plot.
@@ -241,6 +393,8 @@ Game Plot translates the plotting requests by Game Path into coordinates that th
 Game Path thinks in logic terms of a 16x16 grid for its game logic, and its outputs aimed to drive the VGA are also in this 16x16 grid format. Game Plot's goal is to translate this 16x16 grid format to the actual VGA coordinates on screen.
 
 Game Path's 16x16 grid is represented with 96x96 VGA pixels, where each square of Game Path's grid is made up of 6x6 VGA pixels.
+
+Note that the entire VGA grid is 159x119, but the box plotted by init_screen outlines this 96x96 pixel grid.
 
 Game Plot follows a waitrequest protocol. This is the same protocol as displayed in Init Screen.
 
@@ -250,7 +404,14 @@ Game Plot's data flow can be seen below:
 
 Game Plot's state machine can be seen below:
 
-//game_plot_statemachine
+![Game Plot State Machine](supplemental/game_plot_statemachine.png)
+
+A brief description of each state is provided below:
+
+- IDLE: Wait for starting protocol to be received, save the given colour, calculate 'base_x' and 'base_y' of the vga grid corresponding to the given 'game_x' and 'game_y' of the game grid, set pixel loop parameters x and y to 0.
+- PLOT: Cycle through VGA pixel loop parameters (x,y) = (0,0) to (5,5) to go through each VGA pixel in the game grid square, then return to IDLE.
+
+
 
 ## Hex Display - hex_display.sv
 
@@ -266,6 +427,10 @@ Hex Display's data flow diagram can be seen below:
 
 ![Hex Display Diagram](supplemental/hex_display_diagram.png)
 
+
+
+
+
 ## VGA IP
 
 The VGA core used in this project was developed at the University of Toronto. This core was introduced to me in the CPEN 311 course at the University of British Columbia. The original website can be found here: [https://www.eecg.utoronto.ca/~jayar/ece241_07F/vga/](https://www.eecg.utoronto.ca/~jayar/ece241_07F/vga/).
@@ -279,6 +444,9 @@ The files necessary for this VGA IP are:
 The Black Box diagram of the VGA IP can be seen below:
 
 ![VGA Black Box](supplemental/VGA_blackbox.PNG)
+
+
+
 
 
 ## Timing Closure
