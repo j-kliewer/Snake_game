@@ -18,6 +18,10 @@ Snake game implemented on the DE1-SoC
 - [VGA IP](#hex-display---hex_displaysv)
 - [Timing Closure](#timing-closure)
 
+
+
+
+
 ## Objectives
 
 - Gain experience with System Verilog design and verification
@@ -34,6 +38,10 @@ Snake game implemented on the DE1-SoC
   - Iteration
   - Technical writeup and presentation
 
+
+
+
+
 ## Introduction
 
 This project was created to implement a snake game in hardware on the [De1-SoC development board](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&CategoryNo=205&No=836&PartNo=1#contents).
@@ -46,16 +54,16 @@ This project was created to implement a snake game in hardware on the [De1-SoC d
 
   **Challenge:** The snake must avoid both the walls of the grid and the snake tail that is trailing behind the snake head. If the snake collides with either, the game is over.
 
-
 https://github.com/user-attachments/assets/b48ee1c6-1af1-48ac-a919-0df670f72795
 
-[Snake Game Movie](supplemental/snake_game_movie.MOV)
-
-
+If above video does not work it is available to download here: [Download Snake Game Movie](supplemental/snake_game_movie.MOV)
   
 The file structure of the project is as follows:
 
 ![Code Hierarchy Image](supplemental/code_hierarchy.png)
+
+
+
 
 
 ## Top Snake Game - top_snake_game.sv
@@ -66,7 +74,11 @@ A basic flow structure of Top Snake Game is as follows:
 
 A diagram of the state machine is as follows:
 
-//insert state machine diagram
+![Snake Game State Machine](supplemental/top_statemachine.png)
+
+
+
+
 
 ## Switch Debounce - switch_debounce.sv
 
@@ -82,6 +94,10 @@ A diagram of the Switch Debounce Circuit can be seen below:
 
 ![Switch Debounce Diagram](supplemental/switch_debounce_diagram.png)
 
+
+
+
+
 ## Button Sync - button_sync.sv
 
 The Button Sync module implements synchronizers for each of the 4 buttons on the DE1-SoC board which are used to control the direction of the snake and the game. These 4 buttons are completely asynchronous. 
@@ -93,6 +109,10 @@ Also note that these inputs are not debounced as they have already been debounce
 A diagram of the Button Sync circuit can be see below:
 
 ![Button Sync Diagram](supplemental/button_sync_diagram.png)
+
+
+
+
 
 ## Init Screen - init_screen.sv
 
@@ -136,10 +156,27 @@ The flow of data in Init Screen can be seen in the diagram below:
 
 The State Machine of Init Screen is shown below:
 
-//insert init_screen_statemachine
+![Init Screen State Machine](supplemental/init_screen_statemachine.png)
+
+
+
 
 
 ## Game Path - game_path.sv
+
+Game Path is used as the brain of a snake game. This module is what converts the user inputs into the game that is displayed to the player. This module processes the user buttons as inputs, and drives the game pixels that will be displayed on the VGA and the player score displayed on the hex display. 
+
+Note that the game pixels are passed to the game_plot module who interacts with the VGA IP to display on the VGA. Also note that the player score is provided to the hex_display module that drives the 7-segment hex display.
+
+This module not only processes the game, but also processes the start, end, and reset of a game.
+
+The general data flow of game_path, it's nested memory module, and blocks of logic can be seen in the diagram below:
+
+![Game Path Diagram](supplementa/game_path_diagram.png)
+
+The Simple Dual Port RAM, State Machine, Last Pushed Direction, and LFSR blocks will be described in depth below.
+
+
 
 ### Simple Dual Port RAM - simple_dual_port_ram.sv
 The Simple Dual Port RAM module is created to infer RAM within a code block. This memory is created to utilize the M10K memory block available on the Cyclone V FPGA. It is also inferred to utilize pass through logic when reading and writing to the same cell within the same clock cycle.
@@ -149,7 +186,14 @@ The memory inferred is 8X256 bits, and is a simple dual port memory, meaning tha
 In the context of the game, this memory is used to implement FIFO memory with 256 available spots to hold an 8-bit location refering to one square on the game grid. This memory is used to hold the location of each segment of the snake in order from head to tail. At each game step, we add a new 8-bit head location and read the tail location if applicable.
 
 
+
 ### Main State Machine
+
+The state machine of Game Path can be seen below:
+
+![Game Path State Machine](supplemental/game_path_statemachine.png)
+
+
 
 ### Last Pushed Direction
 
@@ -183,6 +227,7 @@ The code can be seen below:
 ```
 
 Note that there is a hierarchy of which button will be remembered if multiple are pressed at once. I believe this does not take away from the gameplay as it is the player's error if they have multiple buttons pushed at once. Since the clock speed sampling the user input is also much faster than human reaction time, if the player fixes their input, their fixed input will be captured.
+
 
 
 ### Linear Feedback Shift Register
@@ -234,6 +279,10 @@ The code for capturing the seed can be seen below:
 
 ```
 
+
+
+
+
 ## Game Plot - game_plot.sv
 
 Game Plot translates the plotting requests by Game Path into coordinates that the VGA can plot.
@@ -250,7 +299,11 @@ Game Plot's data flow can be seen below:
 
 Game Plot's state machine can be seen below:
 
-//game_plot_statemachine
+![Game Plot State Machine](supplemental/game_plot_statemachine.png)
+
+
+
+
 
 ## Hex Display - hex_display.sv
 
@@ -266,6 +319,10 @@ Hex Display's data flow diagram can be seen below:
 
 ![Hex Display Diagram](supplemental/hex_display_diagram.png)
 
+
+
+
+
 ## VGA IP
 
 The VGA core used in this project was developed at the University of Toronto. This core was introduced to me in the CPEN 311 course at the University of British Columbia. The original website can be found here: [https://www.eecg.utoronto.ca/~jayar/ece241_07F/vga/](https://www.eecg.utoronto.ca/~jayar/ece241_07F/vga/).
@@ -279,6 +336,9 @@ The files necessary for this VGA IP are:
 The Black Box diagram of the VGA IP can be seen below:
 
 ![VGA Black Box](supplemental/VGA_blackbox.PNG)
+
+
+
 
 
 ## Timing Closure
