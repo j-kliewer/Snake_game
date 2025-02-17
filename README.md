@@ -297,6 +297,18 @@ A brief description of each state's function can be found below:
 
 Note that two types of memory are used to store the snake. The FIFO RAM uses 256x8 bits to store the snake segments in order from head to tail, simple_mem uses 256 bits to indicate if a location on the 16x16 game grid is occupied by the snake.
 
+To further clarify the states and their relation to the tracking and movement of the snake, the following diagrams are provided:
+
+(Note that the snakes are represented in a horizontal line for simplification)
+
+![Snake Diagram](supplemental/snake_diagram.png)
+
+![Moving Snake Diagram](supplemental/moving_snake_diagram.png)
+
+Note that all of the above states will happen fast enough that the elongated form of the snake should not be notable.
+
+Also note if the head runs into an apple, tail will not be covered black, and rd_ptr will not be increased, thus elongating the snake as a Point is collected.
+
 
 ### Last Pushed Direction
 
