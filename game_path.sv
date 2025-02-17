@@ -98,7 +98,7 @@ module game_path #(parameter [25:0] STALL_BASE = 26'd12_500_000, parameter [25:0
         input [7:0] write_address, read_address,
         output reg [7:0] q,
     );*/
-    simple_dual_port_ram DUT(
+    simple_dual_port_ram RAM(
         .clk(clk),
         .we(we),
         .d(wr_data),
