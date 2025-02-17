@@ -172,7 +172,7 @@ This module not only processes the game, but also processes the start, end, and 
 
 The general data flow of game_path, it's nested memory module, and blocks of logic can be seen in the diagram below:
 
-![Game Path Diagram](supplementa/game_path_diagram.png)
+![Game Path Diagram](supplemental/game_path_diagram.png)
 
 The Simple Dual Port RAM, State Machine, Last Pushed Direction, and LFSR blocks will be described in depth below.
 
