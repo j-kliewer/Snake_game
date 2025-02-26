@@ -49,14 +49,6 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
         .out_sw(rst) //restarts if pushed up
     );
 
-    //For init_screen
-    logic is_start;
-    logic is_waitrequest;
-    logic is_vga_plot;
-    logic [7:0] is_vga_x;
-    logic [6:0] is_vga_y;
-    logic [2:0] is_vga_colour;
-
 
     /*button_sync(
         //inputs
@@ -70,6 +62,15 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
         .in(KEY[3:0]),
         .out(key_sync[3:0])
     );
+
+
+    //For init_screen
+    logic is_start;
+    logic is_waitrequest;
+    logic is_vga_plot;
+    logic [7:0] is_vga_x;
+    logic [6:0] is_vga_y;
+    logic [2:0] is_vga_colour;
 
     /* init_screen( 
         //inputs
@@ -179,7 +180,10 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
     //game_path #(.STALL_BASE(26'd40), .STALL_DECR(26'd0)) game_path_u0(
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //synthesize
-    game_path game_path_u0(
+
+    //each move 2/5 second, at 256 apples eaten, want stall time = 5_000_000: STALL_BASE - 254*STALL_DECR = 5_000_000; (20_000_000-5_000_000)/254 = STALL_DECR = 59_055
+    game_path #(.STALL_BASE(26'd20_000_000), .STALL_DECR(26'd60_000)) game_path_u0(
+    //game_path #(.STALL_DECR(26'd20_000)) game_path_u0(
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         //inputs
         .clk(CLOCK_50),
@@ -206,8 +210,6 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
     //For Hex Display
     /* hex_display #(parameter NUM_HEX = 2) (
         //inputs
-        input logic clk, 
-        input logic rst_n, 
         input logic [(NUM_HEX<<2)-1:0] num,
         //outputs
         output logic [6:0] HEX0, 
@@ -219,8 +221,6 @@ module top_snake_game(input logic CLOCK_50, input logic [3:0] KEY,
     );*/
     hex_display #(.NUM_HEX(2)) hex_display_u0(
         //inputs
-        .clk(CLOCK_50),
-        .rst_n(rst_n),
         .num(hex_points),
         //outputs
         .HEX0(HEX0),
