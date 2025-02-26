@@ -57,6 +57,10 @@ This project was created to implement a snake game in hardware on the [De1-SoC d
 https://github.com/user-attachments/assets/b48ee1c6-1af1-48ac-a919-0df670f72795
 
 If above video does not work it is available to download here: [Download Snake Game Movie](supplemental/snake_game_movie.MOV)
+
+The User Inputs for the game can be seen below:
+
+<img src="supplemental/ui_diagram.png" alt="User Inpute Diagram" style="width:60%; height:auto;">
   
 The file structure of the project is as follows:
 
