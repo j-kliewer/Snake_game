@@ -61,6 +61,8 @@ If above video does not work it is available to download here: [Download Snake G
 The User Inputs for the game can be seen below:
 
 <img src="supplemental/ui_diagram.png" alt="User Inpute Diagram" style="width:60%; height:auto;">
+
+Note: RESET is used to reset the entire system. Once the background is plotted, the direction buttons are used to start a game, clear the grid after a death, and start another game thereafter.
   
 The file structure of the project is as follows:
 
